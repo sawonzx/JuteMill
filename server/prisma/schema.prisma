@@ -20,6 +20,7 @@ enum OrderStatus {
   IN_PRODUCTION
   READY
   DISPATCHED
+  FULFILLED
   CANCELLED
 }
 
@@ -29,6 +30,7 @@ enum InvoiceStatus {
   PART_PAID
   PAID
   OVERDUE
+  VOID
 }
 
 enum PaymentMethod {
@@ -36,13 +38,16 @@ enum PaymentMethod {
   CASH
   MOBILE_BANKING
   CHEQUE
+  OTHER
 }
 
 enum ProductionStatus {
+  DRAFT
   PLANNED
   IN_PROGRESS
   COMPLETED
   ON_HOLD
+  CANCELLED
 }
 
 enum CustomerType {
@@ -66,34 +71,71 @@ enum InventoryMovementType {
   ADJUSTMENT
 }
 
+model Company {
+  id        String   @id @default(cuid())
+  name      String   @default("Bengal Jute Industries Ltd.")
+  code      String   @default("BJIL")
+  currency  String   @default("BDT")
+  email     String   @default("info@bengaljute.demo")
+  phone     String   @default("+880 2-9887766")
+  address   String   @default("Bengal House, 45 Dilkusha C/A, Dhaka, Bangladesh")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Factory {
-  id         String                    @id @default(cuid())
-  code       String                    @unique
-  name       String
-  location   String
-  address    String
-  createdAt  DateTime                  @default(now())
-  users      User[]
-  customers  Customer[]
-  warehouses Warehouse[]
-  inventory  InventoryBalance[]
-  thresholds FactoryProductThreshold[]
-  movements  InventoryMovement[]
-  orders     SalesOrder[]
-  invoices   Invoice[]
-  production ProductionRecord[]
+  id          String                    @id @default(cuid())
+  code        String                    @unique
+  name        String
+  location    String
+  address     String
+  phone       String?
+  email       String?
+  active      Boolean                   @default(true)
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+  users       User[]
+  assignments UserFactoryAssignment[]
+  customers   Customer[]
+  warehouses  Warehouse[]
+  inventory   InventoryBalance[]
+  thresholds  FactoryProductThreshold[]
+  movements   InventoryMovement[]
+  orders      SalesOrder[]
+  invoices    Invoice[]
+  payments    Payment[]
+  production  ProductionRecord[]
+  auditLogs   AuditLog[]
 }
 
 model User {
-  id        String              @id @default(cuid())
-  name      String
-  email     String              @unique
-  role      UserRole
-  factoryId String?
-  factory   Factory?            @relation(fields: [factoryId], references: [id])
-  active    Boolean             @default(true)
-  createdAt DateTime            @default(now())
-  movements InventoryMovement[]
+  id           String                  @id @default(cuid())
+  name         String
+  email        String                  @unique
+  passwordHash String?
+  role         UserRole
+  factoryId    String?
+  factory      Factory?                @relation(fields: [factoryId], references: [id])
+  assignments  UserFactoryAssignment[]
+  active       Boolean                 @default(true)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  movements    InventoryMovement[]
+  auditLogs    AuditLog[]
+  orders       SalesOrder[]
+  payments     Payment[]
+  production   ProductionRecord[]
+}
+
+model UserFactoryAssignment {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  factoryId String
+  factory   Factory  @relation(fields: [factoryId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, factoryId])
 }
 
 model Customer {
@@ -110,10 +152,11 @@ model Customer {
   address       String
   city          String
   notes         String?
-  orders        SalesOrder[]
-  invoices      Invoice[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+  orders        SalesOrder[]
+  invoices      Invoice[]
+  payments      Payment[]
 
   @@unique([factoryId, code])
   @@index([factoryId, name])
@@ -121,22 +164,24 @@ model Customer {
 }
 
 model Product {
-  id            String                    @id @default(cuid())
-  sku           String                    @unique
-  name          String
-  category      String
-  type          ProductType               @default(FINISHED_PRODUCT)
-  unit          String                    @default("MT")
-  description   String?
-  status        RecordStatus              @default(ACTIVE)
-  standardPrice Decimal?                  @db.Decimal(12, 2)
-  createdAt     DateTime                  @default(now())
-  updatedAt     DateTime                  @updatedAt
-  inventory     InventoryBalance[]
-  thresholds    FactoryProductThreshold[]
-  movements     InventoryMovement[]
-  orderLines    SalesOrderLine[]
-  production    ProductionRecord[]
+  id               String                    @id @default(cuid())
+  sku              String                    @unique
+  name             String
+  category         String
+  type             ProductType               @default(FINISHED_PRODUCT)
+  unit             String                    @default("MT")
+  description      String?
+  status           RecordStatus              @default(ACTIVE)
+  standardPrice    Decimal?                  @db.Decimal(12, 2)
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  inventory        InventoryBalance[]
+  thresholds       FactoryProductThreshold[]
+  movements        InventoryMovement[]
+  orderLines       SalesOrderLine[]
+  invoiceItems     InvoiceItem[]
+  rawProductions   ProductionRecord[]        @relation("RawMaterialInputs")
+  yieldProductions ProductionRecord[]        @relation("FinishedOutputs")
 
   @@index([status, type, category])
   @@index([name])
@@ -213,18 +258,32 @@ model InventoryMovement {
 }
 
 model SalesOrder {
-  id          String           @id @default(cuid())
-  orderNumber String           @unique
-  factoryId   String
-  factory     Factory          @relation(fields: [factoryId], references: [id])
-  customerId  String
-  customer    Customer         @relation(fields: [customerId], references: [id])
-  status      OrderStatus      @default(DRAFT)
-  orderDate   DateTime         @default(now())
-  dueDate     DateTime
-  total       Decimal          @db.Decimal(14, 2)
-  lines       SalesOrderLine[]
-  invoice     Invoice?
+  id              String           @id @default(cuid())
+  orderNumber     String           @unique
+  factoryId       String
+  factory         Factory          @relation(fields: [factoryId], references: [id])
+  customerId      String
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  status          OrderStatus      @default(DRAFT)
+  orderDate       DateTime         @default(now())
+  dueDate         DateTime
+  subtotal        Decimal          @default(0) @db.Decimal(14, 2)
+  taxRate         Decimal          @default(0) @db.Decimal(5, 2)
+  taxAmount       Decimal          @default(0) @db.Decimal(14, 2)
+  total           Decimal          @db.Decimal(14, 2)
+  deliveryAddress String?
+  notes           String?
+  createdById     String?
+  createdBy       User?            @relation(fields: [createdById], references: [id])
+  fulfilledAt     DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  lines           SalesOrderLine[]
+  invoice         Invoice?
+
+  @@index([factoryId, status])
+  @@index([customerId, orderDate])
 }
 
 model SalesOrderLine {
@@ -235,6 +294,9 @@ model SalesOrderLine {
   product   Product    @relation(fields: [productId], references: [id])
   quantity  Decimal    @db.Decimal(12, 2)
   unitPrice Decimal    @db.Decimal(12, 2)
+  subtotal  Decimal    @default(0) @db.Decimal(14, 2)
+
+  @@index([orderId])
 }
 
 model Invoice {
@@ -249,30 +311,96 @@ model Invoice {
   status        InvoiceStatus @default(ISSUED)
   issueDate     DateTime      @default(now())
   dueDate       DateTime
+  subtotal      Decimal       @default(0) @db.Decimal(14, 2)
+  taxAmount     Decimal       @default(0) @db.Decimal(14, 2)
   total         Decimal       @db.Decimal(14, 2)
+  paidAmount    Decimal       @default(0) @db.Decimal(14, 2)
+  balanceDue    Decimal       @default(0) @db.Decimal(14, 2)
+  notes         String?
+  terms         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  items         InvoiceItem[]
   payments      Payment[]
+
+  @@index([factoryId, status])
+  @@index([customerId, issueDate])
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  description String
+  quantity    Decimal  @db.Decimal(12, 2)
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  total       Decimal  @db.Decimal(14, 2)
+
+  @@index([invoiceId])
 }
 
 model Payment {
-  id        String        @id @default(cuid())
-  invoiceId String
-  invoice   Invoice       @relation(fields: [invoiceId], references: [id])
-  amount    Decimal       @db.Decimal(14, 2)
-  method    PaymentMethod
-  reference String?
-  paidAt    DateTime      @default(now())
+  id          String        @id @default(cuid())
+  receiptNo   String        @unique
+  factoryId   String
+  factory     Factory       @relation(fields: [factoryId], references: [id])
+  customerId  String
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  invoiceId   String
+  invoice     Invoice       @relation(fields: [invoiceId], references: [id])
+  amount      Decimal       @db.Decimal(14, 2)
+  method      PaymentMethod @default(BANK_TRANSFER)
+  reference   String?
+  notes       String?
+  paidAt      DateTime      @default(now())
+  createdById String?
+  createdBy   User?         @relation(fields: [createdById], references: [id])
+  createdAt   DateTime      @default(now())
+
+  @@index([factoryId, paidAt])
+  @@index([customerId, paidAt])
+  @@index([invoiceId])
 }
 
 model ProductionRecord {
-  id              String           @id @default(cuid())
-  batchNumber     String           @unique
-  factoryId       String
-  factory         Factory          @relation(fields: [factoryId], references: [id])
-  productId       String
-  product         Product          @relation(fields: [productId], references: [id])
-  status          ProductionStatus @default(PLANNED)
-  plannedQuantity Decimal          @db.Decimal(12, 2)
-  actualQuantity  Decimal?         @db.Decimal(12, 2)
-  startDate       DateTime
-  endDate         DateTime?
+  id                  String           @id @default(cuid())
+  batchNumber         String           @unique
+  factoryId           String
+  factory             Factory          @relation(fields: [factoryId], references: [id])
+  rawMaterialId       String
+  rawMaterial         Product          @relation("RawMaterialInputs", fields: [rawMaterialId], references: [id])
+  rawMaterialQuantity Decimal          @db.Decimal(14, 3)
+  finishedProductId   String
+  finishedProduct     Product          @relation("FinishedOutputs", fields: [finishedProductId], references: [id])
+  finishedQuantity    Decimal          @db.Decimal(14, 3)
+  wastageQuantity     Decimal?         @default(0) @db.Decimal(14, 3)
+  status              ProductionStatus @default(DRAFT)
+  productionDate      DateTime         @default(now())
+  completedAt         DateTime?
+  remarks             String?
+  createdById         String?
+  createdBy           User?            @relation(fields: [createdById], references: [id])
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@index([factoryId, productionDate])
+  @@index([status])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  factoryId String?
+  factory   Factory? @relation(fields: [factoryId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([factoryId, createdAt])
+  @@index([entity, entityId])
 }
