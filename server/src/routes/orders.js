@@ -6,17 +6,23 @@ import { createSalesOrder, fulfillSalesOrder, cancelSalesOrder } from '../servic
 import { recordAudit } from '../services/audit.js';
 const createOrderSchema = z.object({
   factoryId: z.string().optional(),
-  customerId: z.string().min(1),
-  orderDate: z.string().datetime().optional(),
-  dueDate: z.string().datetime(),
+  customerId: z.string().min(1, 'Please select a customer.'),
+  orderDate: z
+    .string()
+    .optional()
+    .refine((v) => !v || !isNaN(Date.parse(v)), 'Invalid order date format.'),
+  dueDate: z
+    .string()
+    .min(1, 'Please specify a due date.')
+    .refine((v) => !isNaN(Date.parse(v)), 'Invalid due date format.'),
   deliveryAddress: z.string().trim().max(300).optional(),
   notes: z.string().trim().max(1000).optional(),
   lines: z
     .array(
       z.object({
-        productId: z.string().min(1),
-        quantity: z.number().positive(),
-        unitPrice: z.number().nonnegative(),
+        productId: z.string().min(1, 'Please select a product.'),
+        quantity: z.coerce.number().positive('Quantity must be greater than zero.'),
+        unitPrice: z.coerce.number().nonnegative('Unit price cannot be negative.'),
       })
     )
     .min(1, 'Order must contain at least one line item.'),
@@ -349,7 +355,7 @@ export function createOrdersRouter(prisma) {
       next(err);
     }
   });
-  router.patch('/:id/confirm', async (req, res, next) => {
+  const handleConfirm = async (req, res, next) => {
     try {
       const user = req.user;
       const order = await prisma.salesOrder.findUnique({
@@ -392,7 +398,9 @@ export function createOrdersRouter(prisma) {
     } catch (err) {
       next(err);
     }
-  });
+  };
+  router.post('/:id/confirm', handleConfirm);
+  router.patch('/:id/confirm', handleConfirm);
   router.post('/:id/fulfill', async (req, res, next) => {
     try {
       const user = req.user;
@@ -425,14 +433,14 @@ export function createOrdersRouter(prisma) {
       next(err);
     }
   });
-  router.patch('/:id/cancel', async (req, res, next) => {
+  const handleCancel = async (req, res, next) => {
     try {
       const user = req.user;
       const { reason } = z
         .object({
           reason: z.string().optional(),
         })
-        .parse(req.body);
+        .parse(req.body || {});
       const order = await prisma.salesOrder.findUnique({
         where: {
           id: req.params.id,
@@ -451,6 +459,8 @@ export function createOrdersRouter(prisma) {
     } catch (err) {
       next(err);
     }
-  });
+  };
+  router.post('/:id/cancel', handleCancel);
+  router.patch('/:id/cancel', handleCancel);
   return router;
 }

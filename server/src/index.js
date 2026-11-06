@@ -48,6 +48,7 @@ app.use('/api/inventory', createInventoryRouter(prisma));
 app.use('/api/orders', createOrdersRouter(prisma));
 app.use('/api/invoices', createInvoicesRouter(prisma));
 app.use('/api/payments', createPaymentsRouter(prisma));
+app.use('/api/production', createProductionRouter(prisma));
 app.use('/api/reports', createReportsRouter(prisma));
 app.use('/api/admin', createAdminRouter(prisma));
 app.get('/api/factories', async (req, res, next) => {
@@ -121,6 +122,11 @@ app.get('/api/health', (_req, res) => {
     system: 'Bengal Jute Industries Ltd. ERP',
     timestamp: new Date().toISOString(),
     demoImpersonation: demoEnabled,
+  });
+});
+app.all('/api/*', (req, res) => {
+  res.status(404).json({
+    error: `API endpoint not found: ${req.method} ${req.originalUrl}`,
   });
 });
 app.use((err, req, res, _next) => {

@@ -233,7 +233,12 @@ function CreateInvoiceFromOrder({ orderId }) {
     onSuccess: (newInv) => {
       navigate(`/invoices/${newInv.id}`);
     },
-    onError: (err) => setErrorMsg(err.message),
+    onError: (err) => {
+      const details = err.details?.length
+        ? `: ${err.details.map((d) => d.message || d.field).join(', ')}`
+        : '';
+      setErrorMsg((err.message ?? 'Failed to create invoice') + details);
+    },
   });
   if (isLoading) return <LoadingState label="Loading sales order…" />;
   if (!order) return <ErrorState message="Could not find sales order" />;
@@ -242,7 +247,7 @@ function CreateInvoiceFromOrder({ orderId }) {
     setErrorMsg(null);
     createMut.mutate({
       orderId,
-      dueDate,
+      dueDate: dueDate ? new Date(dueDate).toISOString() : new Date().toISOString(),
       notes: notes || undefined,
     });
   };

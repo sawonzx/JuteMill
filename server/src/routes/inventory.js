@@ -15,7 +15,10 @@ const movementBodySchema = z
     reference: z.string().trim().max(120).optional(),
     remarks: z.string().trim().max(1000).optional(),
     idempotencyKey: z.string().trim().min(8).max(100).optional(),
-    transactionDate: z.string().datetime().optional(),
+    transactionDate: z
+      .string()
+      .optional()
+      .refine((v) => !v || !isNaN(Date.parse(v)), 'Invalid transaction date format.'),
   })
   .superRefine((val, ctx) => {
     if (val.type === InventoryMovementType.ADJUSTMENT) {

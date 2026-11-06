@@ -4,8 +4,11 @@ import { requireAuth } from '../middleware/auth.js';
 import { createInvoiceFromOrder, voidInvoice } from '../services/invoices.js';
 import { recordAudit } from '../services/audit.js';
 const createInvoiceSchema = z.object({
-  orderId: z.string().min(1),
-  dueDate: z.string().datetime(),
+  orderId: z.string().min(1, 'Order ID is required.'),
+  dueDate: z
+    .string()
+    .min(1, 'Due date is required.')
+    .refine((v) => !isNaN(Date.parse(v)), 'Invalid due date format.'),
   notes: z.string().trim().max(1000).optional(),
   terms: z.string().trim().max(500).optional(),
 });
@@ -252,14 +255,14 @@ export function createInvoicesRouter(prisma) {
       next(err);
     }
   });
-  router.patch('/:id/void', async (req, res, next) => {
+  const handleVoid = async (req, res, next) => {
     try {
       const user = req.user;
       const { reason } = z
         .object({
           reason: z.string().optional(),
         })
-        .parse(req.body);
+        .parse(req.body || {});
       const invoice = await prisma.invoice.findUnique({
         where: {
           id: req.params.id,
@@ -278,6 +281,8 @@ export function createInvoicesRouter(prisma) {
     } catch (err) {
       next(err);
     }
-  });
+  };
+  router.post('/:id/void', handleVoid);
+  router.patch('/:id/void', handleVoid);
   return router;
 }

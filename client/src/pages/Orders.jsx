@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
@@ -42,10 +42,10 @@ const money = new Intl.NumberFormat('en-BD', {
   maximumFractionDigits: 0,
 });
 export default function OrdersPage() {
-  const { id } = useParams();
-  const location = window.location.pathname;
-  if (location.endsWith('/new')) return <NewOrderForm />;
-  if (id) return <OrderDetailView id={id} />;
+  const path = useLocation().pathname.replace(/\/$/, '');
+  if (path === '/sales/new') return <NewOrderForm />;
+  const detail = path.match(/^\/sales\/([^/]+)$/);
+  if (detail && detail[1] !== 'new') return <OrderDetailView id={decodeURIComponent(detail[1])} />;
   return <OrderListView />;
 }
 function StatusChip({ status }) {
@@ -563,7 +563,10 @@ function NewOrderForm() {
       navigate(`/sales/${newOrder.id}`);
     },
     onError: (err) => {
-      setFormError(err.message ?? 'Failed to create sales order');
+      const details = err.details?.length
+        ? `: ${err.details.map((d) => d.message || d.field).join(', ')}`
+        : '';
+      setFormError((err.message ?? 'Failed to create sales order') + details);
     },
   });
   const handleProductChange = (index, pId) => {
@@ -629,9 +632,13 @@ function NewOrderForm() {
     orderMutation.mutate({
       factoryId: effectiveFactoryId,
       customerId,
-      dueDate,
+      dueDate: dueDate ? new Date(dueDate).toISOString() : new Date().toISOString(),
       notes: notes || undefined,
-      lines: validLines,
+      lines: validLines.map((l) => ({
+        productId: l.productId,
+        quantity: Number(l.quantity),
+        unitPrice: Number(l.unitPrice),
+      })),
     });
   };
   return (
