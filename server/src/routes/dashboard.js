@@ -81,7 +81,6 @@ async function fetchBranchSnapshot(db, factoryIdFilter, factoryScope) {
       orderBy: {
         paidAt: 'desc',
       },
-      take: 6,
     }),
     db.inventoryBalance.findMany({
       where: factoryScope,
@@ -236,8 +235,9 @@ export function createDashboardRouter(prisma, dbManager) {
       const orderStats = Array.from(orderStatsMap.values());
 
       const invoices = snapshots.flatMap((s) => s.invoices);
-      const payments = snapshots
-        .flatMap((s) => s.payments)
+      const allPayments = snapshots.flatMap((s) => s.payments);
+      const payments = allPayments
+        .slice()
         .sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt))
         .slice(0, 6);
       const balances = snapshots.flatMap((s) => s.balances);
@@ -308,14 +308,14 @@ export function createDashboardRouter(prisma, dbManager) {
           };
         }
       );
-      for (const inv of invoices) {
-        const d = new Date(inv.issueDate);
+      for (const pay of allPayments) {
+        const d = new Date(pay.paidAt);
         const bucket = monthBuckets.find(
           (b) => b.year === d.getUTCFullYear() && b.monthNum === d.getUTCMonth()
         );
         if (bucket) {
-          const amt = Number(inv.total);
-          const f = factories.find((fac) => fac.id === inv.factoryId);
+          const amt = Number(pay.amount);
+          const f = factories.find((fac) => fac.id === pay.factoryId);
           if (f?.code === 'F-B') {
             bucket.factoryB += amt;
           } else {
