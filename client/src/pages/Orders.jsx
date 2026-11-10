@@ -272,6 +272,9 @@ function OrderDetailView({ id }) {
       void client.invalidateQueries({
         queryKey: ['orders'],
       });
+      void client.invalidateQueries({
+        queryKey: ['dashboard'],
+      });
       void refetch();
     },
     onError: (err) => setErrorMsg(err.message),
@@ -285,6 +288,9 @@ function OrderDetailView({ id }) {
       });
       void client.invalidateQueries({
         queryKey: ['inventory'],
+      });
+      void client.invalidateQueries({
+        queryKey: ['dashboard'],
       });
       void refetch();
     },
@@ -300,6 +306,9 @@ function OrderDetailView({ id }) {
       void client.invalidateQueries({
         queryKey: ['orders'],
       });
+      void client.invalidateQueries({
+        queryKey: ['dashboard'],
+      });
       void refetch();
     },
     onError: (err) => setErrorMsg(err.message),
@@ -310,6 +319,9 @@ function OrderDetailView({ id }) {
       setDeleteModal(false);
       void client.invalidateQueries({
         queryKey: ['orders'],
+      });
+      void client.invalidateQueries({
+        queryKey: ['dashboard'],
       });
       navigate('/sales');
     },
@@ -836,9 +848,16 @@ function NewOrderForm() {
         pageSize: 100,
       }),
   });
+  const client = useQueryClient();
   const orderMutation = useMutation({
     mutationFn: (data) => createOrder(data),
     onSuccess: (newOrder) => {
+      void client.invalidateQueries({
+        queryKey: ['orders'],
+      });
+      void client.invalidateQueries({
+        queryKey: ['dashboard'],
+      });
       navigate(`/sales/${newOrder.id}`);
     },
     onError: (err) => {

@@ -77,6 +77,7 @@ export default function TrashPage() {
       queryClient.invalidateQueries({ queryKey: ['trash-items'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setRestoreModalItem(null);
       setSelectedIds((prev) => prev.filter((id) => id !== restoreModalItem?.id));
       setActionSuccess(data.message || 'Item recovered successfully.');
@@ -87,6 +88,7 @@ export default function TrashPage() {
     mutationFn: (id) => permanentDeleteTrashItem(id),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['trash-items'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setPermanentDeleteModalItem(null);
       setSelectedIds((prev) => prev.filter((id) => id !== permanentDeleteModalItem?.id));
       setActionSuccess(data.message || 'Item permanently deleted.');
@@ -97,6 +99,7 @@ export default function TrashPage() {
     mutationFn: () => emptyTrash(),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['trash-items'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setSelectedIds([]);
       setEmptyTrashModal(false);
       setActionSuccess(data.message || 'Trash emptied successfully.');
@@ -109,6 +112,7 @@ export default function TrashPage() {
       queryClient.invalidateQueries({ queryKey: ['trash-items'] });
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setSelectedIds([]);
       setBatchRestoreModal(false);
       setActionSuccess(data.message || 'Selected items recovered successfully.');
@@ -119,6 +123,7 @@ export default function TrashPage() {
     mutationFn: () => batchDeleteTrashItems(selectedIds),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['trash-items'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       setSelectedIds([]);
       setBatchDeleteModal(false);
       setActionSuccess(data.message || 'Selected items permanently deleted.');

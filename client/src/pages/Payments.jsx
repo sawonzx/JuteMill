@@ -263,6 +263,9 @@ function RecordPaymentModal({ onClose }) {
       void client.invalidateQueries({
         queryKey: ['invoices'],
       });
+      void client.invalidateQueries({
+        queryKey: ['dashboard'],
+      });
       onClose();
     },
     onError: (err) => setErrorMsg(err.message),

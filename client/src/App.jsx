@@ -19,6 +19,7 @@ import {
   Menu,
   Package,
   PanelLeftClose,
+  RefreshCw,
   Settings,
   ShoppingCart,
   Trash2,
@@ -165,13 +166,15 @@ export default function App() {
     enabled: user?.role === 'HEAD_OFFICE_ADMIN',
   });
   const factories = factoriesQuery.data ?? [];
+  const currentPath = useLocation().pathname;
   const dashboardQuery = useQuery({
     queryKey: ['dashboard', selectedId, activeFactoryId],
     queryFn: () => getDashboard(selectedId, activeFactoryId || undefined),
     enabled: !!selectedId,
-    refetchInterval: 60_000,
+    refetchInterval: currentPath === '/' ? 4_000 : 15_000,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
-  const currentPath = useLocation().pathname;
   const section = useMemo(
     () =>
       currentPath === '/'
@@ -640,8 +643,30 @@ function Dashboard({ query }) {
               : `Current operational performance at ${data.user.factory?.name}.`}
           </p>
         </div>
-        <div className="heading-meta">
+        <div className="heading-meta" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span className="live-indicator" title="Live real-time polling active">
+            <i />
+            LIVE
+          </span>
           <span className="heading-date">{today}</span>
+          <Button
+            variant="outline"
+            onClick={() => void query.refetch()}
+            disabled={query.isFetching}
+            title="Refresh overview data"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 12px',
+              fontSize: '12px',
+              height: '32px',
+              fontWeight: 600,
+            }}
+          >
+            <RefreshCw size={12} className={query.isFetching ? 'spin-animate' : ''} />
+            <span>{query.isFetching ? 'Syncing…' : 'Refresh'}</span>
+          </Button>
         </div>
       </div>
 

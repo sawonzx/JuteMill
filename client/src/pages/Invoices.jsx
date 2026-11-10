@@ -423,9 +423,16 @@ function CreateInvoiceFromOrder({ orderId }) {
     queryKey: ['order', orderId],
     queryFn: () => getOrder(orderId),
   });
+  const client = useQueryClient();
   const createMut = useMutation({
     mutationFn: (data) => createInvoice(data),
     onSuccess: (newInv) => {
+      void client.invalidateQueries({
+        queryKey: ['invoices'],
+      });
+      void client.invalidateQueries({
+        queryKey: ['dashboard'],
+      });
       navigate(`/invoices/${newInv.id}`);
     },
     onError: (err) => {
@@ -635,6 +642,9 @@ function InvoiceDetailView({ id }) {
       void client.invalidateQueries({
         queryKey: ['invoices'],
       });
+      void client.invalidateQueries({
+        queryKey: ['dashboard'],
+      });
       void refetch();
     },
     onError: (err) => setEditError(err.message),
@@ -645,6 +655,9 @@ function InvoiceDetailView({ id }) {
       setVoidModal(false);
       void client.invalidateQueries({
         queryKey: ['invoices'],
+      });
+      void client.invalidateQueries({
+        queryKey: ['dashboard'],
       });
       void refetch();
     },
@@ -666,6 +679,9 @@ function InvoiceDetailView({ id }) {
       });
       void client.invalidateQueries({
         queryKey: ['payments'],
+      });
+      void client.invalidateQueries({
+        queryKey: ['dashboard'],
       });
       void refetch();
     },
