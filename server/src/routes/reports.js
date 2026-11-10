@@ -1,11 +1,14 @@
 import { Router } from 'express';
-import { InvoiceStatus } from '@prisma/client';
-import { requireAuth } from '../middleware/auth.js';
+import { InvoiceStatus, UserRole } from '@prisma/client';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 import { getQueryClients } from '../federation.js';
 
 export function createReportsRouter(prisma, dbManager) {
   const router = Router();
-  router.use(requireAuth);
+  router.use(
+    requireAuth,
+    requireRole(UserRole.HEAD_OFFICE_ADMIN, UserRole.FACTORY_MANAGER, UserRole.ACCOUNTANT)
+  );
 
   router.get('/sales', async (req, res, next) => {
     try {

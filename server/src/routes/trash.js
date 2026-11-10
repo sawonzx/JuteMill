@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireAdminOrManager } from '../middleware/auth.js';
 import { recordAudit } from '../services/audit.js';
 import {
   getQueryClients,
@@ -152,7 +152,7 @@ async function restoreOrderInDb(db, item) {
 
 export function createTrashRouter(prisma, dbManager) {
   const router = Router();
-  router.use(requireAuth);
+  router.use(requireAuth, requireAdminOrManager);
 
   // GET /api/trash - list trashed items with pagination, search, and type filter
   router.get('/', async (req, res, next) => {

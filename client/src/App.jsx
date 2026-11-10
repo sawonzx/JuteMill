@@ -126,6 +126,90 @@ const roleKey = (user) =>
         : user.role === 'ACCOUNTANT'
           ? 'accountant'
           : 'staff';
+
+function AccessDeniedState({ role }) {
+  return (
+    <div className="p2-page">
+      <div
+        className="panel"
+        style={{
+          maxWidth: '520px',
+          margin: '60px auto',
+          padding: '40px 28px',
+          textAlign: 'center',
+          borderRadius: '8px',
+          border: '1px solid #fed7aa',
+          background: '#fffaf5',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+        }}
+      >
+        <div
+          style={{
+            width: '46px',
+            height: '46px',
+            margin: '0 auto 16px',
+            borderRadius: '50%',
+            background: '#ffedd5',
+            color: '#ea580c',
+            display: 'grid',
+            placeItems: 'center',
+          }}
+        >
+          <AlertTriangle size={24} />
+        </div>
+        <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#1f2937', marginBottom: '8px' }}>
+          Access Restricted
+        </h2>
+        <p style={{ fontSize: '13.5px', color: '#6b7280', lineHeight: 1.5, marginBottom: '22px' }}>
+          Your account role (<b>{roleName[role] || role}</b>) does not have permission to view or access this module.
+        </p>
+        <Link
+          to="/"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            background: '#285f45',
+            color: '#fff',
+            padding: '8px 18px',
+            borderRadius: '5px',
+            fontSize: '13px',
+            fontWeight: 600,
+            textDecoration: 'none',
+          }}
+        >
+          Return to Overview
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function ProtectedRoute({ user, permission, groups, children }) {
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+  const key = roleKey(user);
+  const userPerms = getEffectivePermissions(user.role, user.permissions || []);
+
+  let allowed = false;
+  if (user.role === 'HEAD_OFFICE_ADMIN') {
+    allowed = true;
+  } else if (groups?.includes('all')) {
+    allowed = true;
+  } else if (permission && userPerms.includes(permission)) {
+    allowed = true;
+  } else if (groups?.includes(key)) {
+    allowed = true;
+  }
+
+  if (!allowed) {
+    return <AccessDeniedState role={user.role} />;
+  }
+
+  return children;
+}
+
 export default function App() {
   const usersQuery = useQuery({
     queryKey: ['demo-users'],
@@ -413,31 +497,217 @@ export default function App() {
         <div className="page-content">
           <Routes>
             <Route path="/" element={<Dashboard query={dashboardQuery} />} />
-            <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/customers/new" element={<CustomersPage />} />
-            <Route path="/customers/:id" element={<CustomersPage />} />
-            <Route path="/customers/:id/edit" element={<CustomersPage />} />
-            <Route path="/products" element={<ProductsPage />} />
-            <Route path="/products/new" element={<ProductsPage />} />
-            <Route path="/products/:id" element={<ProductsPage />} />
-            <Route path="/products/:id/edit" element={<ProductsPage />} />
-            <Route path="/inventory" element={<InventoryPage />} />
-            <Route path="/inventory/stock-in" element={<InventoryPage />} />
-            <Route path="/inventory/stock-out" element={<InventoryPage />} />
-            <Route path="/inventory/adjustment" element={<InventoryPage />} />
-            <Route path="/inventory/movements" element={<InventoryPage />} />
-            <Route path="/sales" element={<OrdersPage />} />
-            <Route path="/sales/new" element={<OrdersPage />} />
-            <Route path="/sales/:id" element={<OrdersPage />} />
-            <Route path="/invoices" element={<InvoicesPage />} />
-            <Route path="/invoices/:id" element={<InvoicesPage />} />
-            <Route path="/finance" element={<PaymentsPage />} />
-            <Route path="/payments" element={<PaymentsPage />} />
-            {}
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/admin" element={<AdminPage />} />
-            <Route path="/settings" element={<AdminPage />} />
-            <Route path="/trash" element={<TrashPage />} />
+
+            {/* Customers - admin, manager, accountant (BLOCKED FOR STAFF) */}
+            <Route
+              path="/customers"
+              element={
+                <ProtectedRoute user={user} permission="customers:view" groups={['admin', 'manager', 'accountant']}>
+                  <CustomersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/customers/new"
+              element={
+                <ProtectedRoute user={user} permission="customers:manage" groups={['admin', 'manager', 'accountant']}>
+                  <CustomersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/customers/:id"
+              element={
+                <ProtectedRoute user={user} permission="customers:view" groups={['admin', 'manager', 'accountant']}>
+                  <CustomersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/customers/:id/edit"
+              element={
+                <ProtectedRoute user={user} permission="customers:manage" groups={['admin', 'manager', 'accountant']}>
+                  <CustomersPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Products - all roles */}
+            <Route
+              path="/products"
+              element={
+                <ProtectedRoute user={user} permission="products:view" groups={['admin', 'manager', 'accountant', 'staff']}>
+                  <ProductsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/products/new"
+              element={
+                <ProtectedRoute user={user} permission="products:manage" groups={['admin', 'manager']}>
+                  <ProductsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/products/:id"
+              element={
+                <ProtectedRoute user={user} permission="products:view" groups={['admin', 'manager', 'accountant', 'staff']}>
+                  <ProductsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/products/:id/edit"
+              element={
+                <ProtectedRoute user={user} permission="products:manage" groups={['admin', 'manager']}>
+                  <ProductsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Inventory - all roles for view, manage for operations */}
+            <Route
+              path="/inventory"
+              element={
+                <ProtectedRoute user={user} permission="inventory:view" groups={['admin', 'manager', 'accountant', 'staff']}>
+                  <InventoryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/inventory/stock-in"
+              element={
+                <ProtectedRoute user={user} permission="inventory:manage" groups={['admin', 'manager', 'staff']}>
+                  <InventoryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/inventory/stock-out"
+              element={
+                <ProtectedRoute user={user} permission="inventory:manage" groups={['admin', 'manager', 'staff']}>
+                  <InventoryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/inventory/adjustment"
+              element={
+                <ProtectedRoute user={user} permission="inventory:manage" groups={['admin', 'manager']}>
+                  <InventoryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/inventory/movements"
+              element={
+                <ProtectedRoute user={user} permission="inventory:view" groups={['admin', 'manager', 'accountant', 'staff']}>
+                  <InventoryPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Sales Orders - all roles */}
+            <Route
+              path="/sales"
+              element={
+                <ProtectedRoute user={user} permission="orders:view" groups={['admin', 'manager', 'accountant', 'staff']}>
+                  <OrdersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sales/new"
+              element={
+                <ProtectedRoute user={user} permission="orders:create" groups={['admin', 'manager', 'staff']}>
+                  <OrdersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sales/:id"
+              element={
+                <ProtectedRoute user={user} permission="orders:view" groups={['admin', 'manager', 'accountant', 'staff']}>
+                  <OrdersPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Invoices - admin, manager, accountant (BLOCKED FOR STAFF) */}
+            <Route
+              path="/invoices"
+              element={
+                <ProtectedRoute user={user} permission="invoices:view" groups={['admin', 'manager', 'accountant']}>
+                  <InvoicesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/invoices/:id"
+              element={
+                <ProtectedRoute user={user} permission="invoices:view" groups={['admin', 'manager', 'accountant']}>
+                  <InvoicesPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Finance & Ledger - admin, accountant (BLOCKED FOR STAFF & MANAGER) */}
+            <Route
+              path="/finance"
+              element={
+                <ProtectedRoute user={user} permission="payments:view" groups={['admin', 'accountant']}>
+                  <PaymentsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payments"
+              element={
+                <ProtectedRoute user={user} permission="payments:view" groups={['admin', 'accountant']}>
+                  <PaymentsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Reports - admin, manager, accountant (BLOCKED FOR STAFF) */}
+            <Route
+              path="/reports"
+              element={
+                <ProtectedRoute user={user} permission="reports:view" groups={['admin', 'manager', 'accountant']}>
+                  <ReportsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin & Settings - admin, manager (BLOCKED FOR STAFF & ACCOUNTANT) */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute user={user} permission="admin:manage" groups={['admin', 'manager']}>
+                  <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute user={user} permission="admin:manage" groups={['admin', 'manager']}>
+                  <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Trash - admin, manager (BLOCKED FOR STAFF & ACCOUNTANT) */}
+            <Route
+              path="/trash"
+              element={
+                <ProtectedRoute user={user} groups={['admin', 'manager']}>
+                  <TrashPage />
+                </ProtectedRoute>
+              }
+            />
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
