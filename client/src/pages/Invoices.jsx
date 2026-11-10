@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ban, Building2, CreditCard, Info, Pencil, Printer, Search, X } from 'lucide-react';
+import { Ban, Building2, CreditCard, FileText, Info, Pencil, Plus, Printer, Search, X } from 'lucide-react';
 import {
   createInvoice,
   getFactories,
   getInvoice,
   getInvoices,
   getOrder,
+  getOrders,
   recordPayment,
   updateInvoice,
   voidInvoice,
@@ -54,6 +55,7 @@ function InvoiceListView() {
   const [status, setStatus] = useState('');
   const [factoryId, setFactoryId] = useState('');
   const [page, setPage] = useState(1);
+  const [orderModalOpen, setOrderModalOpen] = useState(false);
   const factoriesQuery = useQuery({
     queryKey: ['factories'],
     queryFn: getFactories,
@@ -84,6 +86,17 @@ function InvoiceListView() {
       <PageTitle
         title="Invoices"
         description="Accounts receivable billing, sales order invoices, and payment tracking."
+        action={
+          <div className="p2-page-actions">
+            <button
+              type="button"
+              className="p2-button primary"
+              onClick={() => setOrderModalOpen(true)}
+            >
+              <Plus size={15} /> Create invoice
+            </button>
+          </div>
+        }
       />
 
       <section className="p2-panel">
@@ -221,6 +234,179 @@ function InvoiceListView() {
           />
         )}
       </section>
+      <SelectOrderModal
+        open={orderModalOpen}
+        onClose={() => setOrderModalOpen(false)}
+      />
+    </div>
+  );
+}
+function SelectOrderModal({ open, onClose }) {
+  const navigate = useNavigate();
+  const { user } = useCurrentRole();
+  const ordersQuery = useQuery({
+    queryKey: ['orders-for-invoicing', user?.factory?.id],
+    queryFn: () => getOrders({ pageSize: 50 }),
+    enabled: open,
+  });
+
+  if (!open) return null;
+
+  const allOrders = ordersQuery.data?.items ?? [];
+  const unbilledOrders = allOrders.filter(
+    (o) =>
+      o.status !== 'DRAFT' &&
+      o.status !== 'CANCELLED' &&
+      (!o.invoice || o.invoice.status === 'VOID')
+  );
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(15, 23, 42, 0.45)',
+        backdropFilter: 'blur(2px)',
+        padding: '16px',
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="p2-panel"
+        style={{
+          width: '100%',
+          maxWidth: '620px',
+          maxHeight: '85vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          backgroundColor: '#ffffff',
+        }}
+      >
+        <div
+          style={{
+            padding: '16px 20px',
+            borderBottom: '1px solid #e5e7eb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div>
+            <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: '#1f2937' }}>
+              Create Invoice from Sales Order
+            </h2>
+            <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: '#6b7280' }}>
+              Select a confirmed or fulfilled sales order to generate an invoice.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 0,
+              cursor: 'pointer',
+              color: '#6b7280',
+              padding: '4px',
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1 }}>
+          {ordersQuery.isLoading ? (
+            <LoadingState label="Loading active sales orders…" />
+          ) : ordersQuery.error ? (
+            <Notice kind="error">{ordersQuery.error.message}</Notice>
+          ) : unbilledOrders.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {unbilledOrders.map((order) => (
+                <div
+                  key={order.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    background: '#f9fafb',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <strong style={{ fontSize: '13.5px', color: '#111827' }}>
+                        {order.orderNumber}
+                      </strong>
+                      <span className={`p2-badge ${order.status.toLowerCase()}`}>
+                        {order.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#4b5563', marginTop: '2px' }}>
+                      <b>{order.customer?.name}</b> · {order.factory?.name}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '1px' }}>
+                      Due: {new Date(order.dueDate).toLocaleDateString('en-GB')} · Total: {money.format(order.total)}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="p2-button primary"
+                    style={{ whiteSpace: 'nowrap', height: '32px', fontSize: '12px' }}
+                    onClick={() => {
+                      onClose();
+                      navigate(`/invoices?createFromOrder=${order.id}`);
+                    }}
+                  >
+                    Generate Invoice
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '24px 12px' }}>
+              <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#6b7280' }}>
+                No unbilled confirmed orders found. To create an invoice, confirm an active sales order first.
+              </p>
+              <Link
+                className="p2-button secondary"
+                to="/sales"
+                onClick={onClose}
+                style={{ display: 'inline-flex' }}
+              >
+                View Sales Orders
+              </Link>
+            </div>
+          )}
+        </div>
+
+        <div
+          style={{
+            padding: '12px 20px',
+            borderTop: '1px solid #e5e7eb',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            background: '#ffffff',
+          }}
+        >
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

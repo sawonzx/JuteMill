@@ -395,7 +395,12 @@ function OrderDetailView({ id }) {
               <Trash2 size={15} /> Delete Order
             </Button>
           )}
-          {order.status === 'FULFILLED' && !order.invoice && (
+          {isManager && order.status === 'DRAFT' && !order.invoice && (
+            <span style={{ fontSize: '12px', color: '#6b7280', alignSelf: 'center' }}>
+              (Confirm order to issue invoice)
+            </span>
+          )}
+          {order.status !== 'DRAFT' && order.status !== 'CANCELLED' && !order.invoice && (
             <Link className="p2-button primary" to={`/invoices?createFromOrder=${order.id}`}>
               <FileText size={15} /> Create Invoice
             </Link>
