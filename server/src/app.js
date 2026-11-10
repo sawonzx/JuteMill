@@ -34,6 +34,14 @@ export function createApp(dbManager, port = 4000) {
     })
   );
 
+  // Normalize repeated /api/api/ prefixes if misconfigured on client env
+  app.use((req, _res, next) => {
+    if (req.url.startsWith('/api/api/')) {
+      req.url = req.url.replace(/^\/api\/api\//, '/api/');
+    }
+    next();
+  });
+
   app.use(express.json());
   app.use(cookieParser());
 

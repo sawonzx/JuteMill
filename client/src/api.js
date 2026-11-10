@@ -1,14 +1,20 @@
 export function getApiBaseUrl() {
-  if (import.meta.env.VITE_API_URL) {
-    const base = import.meta.env.VITE_API_URL.replace(/\/$/, '');
-    return base.endsWith('/api') ? base : `${base}/api`;
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
+    let base = envUrl.trim().replace(/\/+$/, '');
+    while (base.endsWith('/api')) {
+      base = base.slice(0, -4).replace(/\/+$/, '');
+    }
+    return `${base}/api`;
   }
+
   if (typeof window !== 'undefined') {
     const port = window.location.port;
     if (port === '5174') return 'http://localhost:4001/api';
     if (port === '5175') return 'http://localhost:4002/api';
     if (port === '5173') return 'http://localhost:4000/api';
   }
+
   return 'http://localhost:4000/api';
 }
 export class ApiError extends Error {
