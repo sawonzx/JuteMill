@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { UserRole } from '@prisma/client';
+import { getEffectivePermissions } from '../constants/permissions.js';
 const JWT_SECRET = process.env.JWT_SECRET ?? 'jute-mill-erp-secret-key-2026';
 export function signToken(payload) {
   return jwt.sign(payload, JWT_SECRET, {
@@ -64,11 +65,14 @@ export function authMiddleware(prisma) {
       }
       const isSuperAdmin = dbUser.role === UserRole.HEAD_OFFICE_ADMIN;
       const accessibleFactoryIds = isSuperAdmin ? null : assigned;
+      const effectivePermissions = getEffectivePermissions(dbUser.role, dbUser.permissions);
       const user = {
         id: dbUser.id,
         name: dbUser.name,
         email: dbUser.email,
         role: dbUser.role,
+        permissions: effectivePermissions,
+        hasPermission: (permission) => isSuperAdmin || effectivePermissions.includes(permission),
         factoryId: dbUser.factoryId,
         factory: dbUser.factory,
         assignedFactoryIds: assigned,
@@ -108,6 +112,19 @@ export function requireSuperAdmin(req, res, next) {
   if (!req.user.isSuperAdmin) {
     return res.status(403).json({
       error: 'Access denied: Head office administrator privileges required.',
+    });
+  }
+  next();
+}
+export function requireAdminOrManager(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({
+      error: 'Authentication required.',
+    });
+  }
+  if (!req.user.isSuperAdmin && !req.user.isManager) {
+    return res.status(403).json({
+      error: 'Access denied: Administrator or Factory Manager privileges required.',
     });
   }
   next();

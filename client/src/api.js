@@ -1,4 +1,16 @@
-const API = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api';
+export function getApiBaseUrl() {
+  if (import.meta.env.VITE_API_URL) {
+    const base = import.meta.env.VITE_API_URL.replace(/\/$/, '');
+    return base.endsWith('/api') ? base : `${base}/api`;
+  }
+  if (typeof window !== 'undefined') {
+    const port = window.location.port;
+    if (port === '5174') return 'http://localhost:4001/api';
+    if (port === '5175') return 'http://localhost:4002/api';
+    if (port === '5173') return 'http://localhost:4000/api';
+  }
+  return 'http://localhost:4000/api';
+}
 export class ApiError extends Error {
   status;
   details;
@@ -10,7 +22,7 @@ export class ApiError extends Error {
 }
 async function request(path, init = {}) {
   const identity = localStorage.getItem('jute-demo-user-id');
-  const response = await fetch(`${API}${path}`, {
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...init,
     headers: {
       ...(init.body
@@ -79,6 +91,8 @@ export const setCustomerStatus = (id, status) =>
       status,
     })
   );
+export const deleteCustomer = (id) =>
+  request(`/customers/${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const getProducts = (filters) => request(`/products${queryString(filters)}`);
 export const getProduct = (id) => request(`/products/${encodeURIComponent(id)}`);
 export const createProduct = (data) => request('/products', json('POST', data));
@@ -118,9 +132,13 @@ export const cancelOrder = (id, reason) =>
       reason,
     })
   );
+export const deleteOrder = (id) =>
+  request(`/orders/${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const getInvoices = (filters) => request(`/invoices${queryString(filters)}`);
 export const getInvoice = (id) => request(`/invoices/${encodeURIComponent(id)}`);
 export const createInvoice = (data) => request('/invoices', json('POST', data));
+export const updateInvoice = (id, data) =>
+  request(`/invoices/${encodeURIComponent(id)}`, json('PUT', data));
 export const voidInvoice = (id, reason) =>
   request(
     `/invoices/${encodeURIComponent(id)}/void`,
@@ -145,7 +163,7 @@ export const getReceivablesReport = (params) =>
 export const getProductionReport = (params) => request(`/reports/production${queryString(params)}`);
 export const getExportUrl = (type, params) => {
   const query = queryString(params);
-  return `${API}/reports/export/${type}${query}`;
+  return `${getApiBaseUrl()}/reports/export/${type}${query}`;
 };
 export const getAdminUsers = () => request('/admin/users');
 export const createAdminUser = (data) => request('/admin/users', json('POST', data));
@@ -168,3 +186,15 @@ export const updateAdminFactory = (id, data) =>
 export const getCompanyProfile = () => request('/admin/company');
 export const updateCompanyProfile = (data) => request('/admin/company', json('PUT', data));
 export const getAuditLogs = (params) => request(`/admin/audit-logs${queryString(params)}`);
+
+export const getTrashItems = (filters) => request(`/trash${queryString(filters)}`);
+export const restoreTrashItem = (id) =>
+  request(`/trash/${encodeURIComponent(id)}/restore`, { method: 'POST' });
+export const permanentDeleteTrashItem = (id) =>
+  request(`/trash/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const emptyTrash = () =>
+  request('/trash/empty', { method: 'POST' });
+export const batchRestoreTrashItems = (ids) =>
+  request('/trash/batch-restore', json('POST', { ids }));
+export const batchDeleteTrashItems = (ids) =>
+  request('/trash/batch-delete', json('POST', { ids }));

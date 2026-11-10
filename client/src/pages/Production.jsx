@@ -136,6 +136,7 @@ export default function ProductionPage() {
               <table className="p2-table">
                 <thead>
                   <tr>
+                    <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
                     <th>Batch #</th>
                     {isAdmin && <th>Factory</th>}
                     <th>Status</th>
@@ -147,7 +148,7 @@ export default function ProductionPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {batchesQuery.data.items.map((batch) => {
+                  {batchesQuery.data.items.map((batch, index) => {
                     const factoryCode = batch.factory?.code ?? batch.factoryCode ?? 'F';
                     const rawUnit = batch.rawMaterial?.unit ?? 'kg';
                     const rawName = batch.rawMaterial?.name ?? 'Raw Jute';
@@ -172,6 +173,9 @@ export default function ProductionPage() {
                     const yieldSuffix = batch.status === 'COMPLETED' ? '' : ' (est)';
                     return (
                       <tr key={batch.id}>
+                        <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                          {String((page - 1) * 10 + index + 1).padStart(2, '0')}
+                        </td>
                         <td>
                           <strong>{batch.batchNumber}</strong>
                           {batchNotes && <small className="p2-subtext">{batchNotes}</small>}

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight,
@@ -11,12 +11,16 @@ import {
   Plus,
   Search,
   Trash2,
+  UserPlus,
+  X,
   XCircle,
 } from 'lucide-react';
 import {
   cancelOrder,
   confirmOrder,
+  createCustomer,
   createOrder,
+  deleteOrder,
   fulfillOrder,
   getCustomers,
   getFactories,
@@ -26,9 +30,11 @@ import {
 } from '../api';
 import {
   BackLink,
+  ConfirmModal,
   EmptyState,
   ErrorState,
   FormRow,
+  InvertedInfoIcon,
   LoadingState,
   Notice,
   PageTitle,
@@ -80,6 +86,7 @@ function OrderListView() {
     ],
     queryFn: () =>
       getOrders({
+        q,
         search: q,
         status,
         factoryId: isAdmin ? factoryId : undefined,
@@ -94,9 +101,14 @@ function OrderListView() {
         description="Customer purchase commitments, fulfillment workflows, and order-to-cash lifecycle."
         action={
           isManager ? (
-            <Link className="p2-button primary" to="/sales/new">
-              <Plus size={15} /> Create sales order
-            </Link>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Link className="p2-button secondary" to="/trash?type=SALES_ORDER">
+                <Trash2 size={14} /> Trash Can
+              </Link>
+              <Link className="p2-button primary" to="/sales/new">
+                <Plus size={15} /> Create sales order
+              </Link>
+            </div>
           ) : undefined
         }
       />
@@ -161,6 +173,7 @@ function OrderListView() {
               <table className="p2-table">
                 <thead>
                   <tr>
+                    <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
                     <th>Order #</th>
                     <th>Customer</th>
                     {isAdmin && <th>Factory</th>}
@@ -168,12 +181,17 @@ function OrderListView() {
                     <th>Due Date</th>
                     <th className="p2-right">Items</th>
                     <th className="p2-right">Total</th>
-                    <th />
+                    <th className="p2-right" style={{ width: '60px', minWidth: '60px' }}>
+                      Action
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {ordersQuery.data.items.map((order) => (
+                  {ordersQuery.data.items.map((order, index) => (
                     <tr key={order.id}>
+                      <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                        {String((page - 1) * 10 + index + 1).padStart(2, '0')}
+                      </td>
                       <td>
                         <Link className="p2-record-link" to={`/sales/${order.id}`}>
                           {order.orderNumber}
@@ -202,7 +220,7 @@ function OrderListView() {
                       </td>
                       <td className="p2-actions">
                         <Link to={`/sales/${order.id}`} title="View Order Details">
-                          <ArrowRight size={15} />
+                          <InvertedInfoIcon size={18} />
                         </Link>
                       </td>
                     </tr>
@@ -231,9 +249,14 @@ function OrderListView() {
   );
 }
 function OrderDetailView({ id }) {
+  const navigate = useNavigate();
   const { isManager } = useCurrentRole();
   const client = useQueryClient();
   const [errorMsg, setErrorMsg] = useState(null);
+  const [cancelModal, setCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('Customer requested cancellation');
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [fulfillModal, setFulfillModal] = useState(false);
   const {
     data: order,
     isLoading,
@@ -256,6 +279,7 @@ function OrderDetailView({ id }) {
   const fulfillMut = useMutation({
     mutationFn: () => fulfillOrder(id),
     onSuccess: () => {
+      setFulfillModal(false);
       void client.invalidateQueries({
         queryKey: ['orders'],
       });
@@ -264,15 +288,30 @@ function OrderDetailView({ id }) {
       });
       void refetch();
     },
-    onError: (err) => setErrorMsg(err.message),
+    onError: (err) => {
+      setFulfillModal(false);
+      setErrorMsg(err.message);
+    },
   });
   const cancelMut = useMutation({
-    mutationFn: () => cancelOrder(id, 'Cancelled from order screen'),
+    mutationFn: (reason) => cancelOrder(id, reason || 'Cancelled from order screen'),
     onSuccess: () => {
+      setCancelModal(false);
       void client.invalidateQueries({
         queryKey: ['orders'],
       });
       void refetch();
+    },
+    onError: (err) => setErrorMsg(err.message),
+  });
+  const deleteMut = useMutation({
+    mutationFn: () => deleteOrder(id),
+    onSuccess: () => {
+      setDeleteModal(false);
+      void client.invalidateQueries({
+        queryKey: ['orders'],
+      });
+      navigate('/sales');
     },
     onError: (err) => setErrorMsg(err.message),
   });
@@ -291,7 +330,7 @@ function OrderDetailView({ id }) {
           <h1>{order.orderNumber}</h1>
           <p>
             Placed on {new Date(order.orderDate).toLocaleDateString('en-GB')} by{' '}
-            {order.createdBy.name}
+            {order.createdBy?.name ?? 'Head Office Admin'}
           </p>
         </div>
         <div className="p2-title-action">
@@ -301,12 +340,18 @@ function OrderDetailView({ id }) {
               <Button
                 variant="outline"
                 className="text-red-700 border-red-300 hover:bg-red-50"
-                onClick={() => {
-                  if (confirm('Cancel this sales order?')) cancelMut.mutate();
-                }}
-                disabled={cancelMut.isPending}
+                onClick={() => setCancelModal(true)}
+                disabled={cancelMut.isPending || deleteMut.isPending}
               >
                 <XCircle size={15} /> Cancel Order
+              </Button>
+              <Button
+                variant="outline"
+                className="text-red-700 border-red-300 hover:bg-red-50"
+                onClick={() => setDeleteModal(true)}
+                disabled={cancelMut.isPending || deleteMut.isPending}
+              >
+                <Trash2 size={15} /> Delete Order
               </Button>
               <Button
                 className="bg-emerald-800 hover:bg-emerald-900 text-white"
@@ -322,28 +367,33 @@ function OrderDetailView({ id }) {
               <Button
                 variant="outline"
                 className="text-red-700 border-red-300 hover:bg-red-50"
-                onClick={() => {
-                  if (confirm('Cancel this sales order?')) cancelMut.mutate();
-                }}
+                onClick={() => setCancelModal(true)}
                 disabled={cancelMut.isPending}
               >
-                <XCircle size={15} /> Cancel
+                <XCircle size={15} /> Cancel Order
               </Button>
               <Button
                 className="bg-emerald-800 hover:bg-emerald-900 text-white"
                 onClick={() => {
-                  if (
-                    confirm(
-                      'Fulfill order now? Finished goods will be atomically deducted from factory warehouse.'
-                    )
-                  )
-                    fulfillMut.mutate();
+                  setErrorMsg('');
+                  fulfillMut.reset();
+                  setFulfillModal(true);
                 }}
                 disabled={fulfillMut.isPending}
               >
                 <Package size={15} /> Fulfill Order (Deduct Stock)
               </Button>
             </>
+          )}
+          {isManager && order.status === 'CANCELLED' && (
+            <Button
+              variant="outline"
+              className="text-red-700 border-red-300 hover:bg-red-50"
+              onClick={() => setDeleteModal(true)}
+              disabled={deleteMut.isPending}
+            >
+              <Trash2 size={15} /> Delete Order
+            </Button>
           )}
           {order.status === 'FULFILLED' && !order.invoice && (
             <Link className="p2-button primary" to={`/invoices?createFromOrder=${order.id}`}>
@@ -398,6 +448,7 @@ function OrderDetailView({ id }) {
           <table className="p2-table">
             <thead>
               <tr>
+                <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
                 <th>Product / Description</th>
                 <th>SKU</th>
                 <th>Unit</th>
@@ -407,8 +458,11 @@ function OrderDetailView({ id }) {
               </tr>
             </thead>
             <tbody>
-              {order.lines.map((line) => (
+              {order.lines.map((line, lIdx) => (
                 <tr key={line.id}>
+                  <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                    {String(lIdx + 1).padStart(2, '0')}
+                  </td>
                   <td>
                     <strong>{line.product.name}</strong>
                     {line.notes && <small className="p2-subtext">{line.notes}</small>}
@@ -511,14 +565,234 @@ function OrderDetailView({ id }) {
           </p>
         </section>
       )}
+
+      {cancelModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCancelModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: '10px',
+              padding: '24px',
+              width: '460px',
+              maxWidth: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: '#fef2f2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#dc2626',
+                  flexShrink: 0,
+                }}
+              >
+                <XCircle size={20} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '17px', color: '#111827' }}>
+                  Cancel Sales Order
+                </h3>
+                <small style={{ color: '#6b7280', fontSize: '12px' }}>
+                  {order.orderNumber} · {order.customer.name}
+                </small>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '13.5px', color: '#4b5563', margin: '0 0 16px', lineHeight: 1.5 }}>
+              Are you sure you want to cancel this sales order? Committed items will be released.
+            </p>
+
+            <FormRow label="Cancellation Reason">
+              <input
+                className="p2-input"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="e.g. Buyer requested cancellation, stock shortfall…"
+                autoFocus
+              />
+            </FormRow>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                marginTop: '20px',
+                paddingTop: '16px',
+                borderTop: '1px solid #f3f4f6',
+              }}
+            >
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setCancelModal(false)}
+                disabled={cancelMut.isPending}
+              >
+                Keep Order
+              </Button>
+              <Button
+                type="button"
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => cancelMut.mutate(cancelReason)}
+                disabled={cancelMut.isPending}
+              >
+                {cancelMut.isPending ? 'Cancelling…' : 'Confirm Cancellation'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDeleteModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: '10px',
+              padding: '24px',
+              width: '460px',
+              maxWidth: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  background: '#fef2f2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#dc2626',
+                  flexShrink: 0,
+                }}
+              >
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '17px', color: '#111827' }}>
+                  Permanently Delete Order
+                </h3>
+                <small style={{ color: '#6b7280', fontSize: '12px' }}>
+                  {order.orderNumber} · {order.customer.name}
+                </small>
+              </div>
+            </div>
+
+            <p
+              style={{
+                fontSize: '13.5px',
+                color: '#b91c1c',
+                margin: '0 0 16px',
+                lineHeight: 1.5,
+                background: '#fef2f2',
+                padding: '12px',
+                borderRadius: '6px',
+                border: '1px solid #fecaca',
+              }}
+            >
+              Warning: This action will permanently remove order <strong>{order.orderNumber}</strong> and its line items from the system. This cannot be undone.
+            </p>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                marginTop: '20px',
+                paddingTop: '16px',
+                borderTop: '1px solid #f3f4f6',
+              }}
+            >
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setDeleteModal(false)}
+                disabled={deleteMut.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => deleteMut.mutate()}
+                disabled={deleteMut.isPending}
+              >
+                {deleteMut.isPending ? 'Deleting…' : 'Delete Order'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmModal
+        open={fulfillModal}
+        title="Fulfill Sales Order"
+        subtitle={`${order.orderNumber} · ${order.customer.name}`}
+        message="Fulfill order now? Finished goods will be atomically deducted from factory warehouse."
+        confirmLabel="Confirm Fulfillment"
+        tone="primary"
+        icon={Package}
+        isPending={fulfillMut.isPending}
+        error={fulfillMut.error}
+        onClose={() => {
+          if (!fulfillMut.isPending) setFulfillModal(false);
+        }}
+        onConfirm={() => fulfillMut.mutate()}
+      />
     </div>
   );
 }
 function NewOrderForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedCustomer = searchParams.get('selectedCustomer') || '';
   const { isAdmin, user } = useCurrentRole();
   const [factoryId, setFactoryId] = useState(user?.factory?.id ?? '');
-  const [customerId, setCustomerId] = useState('');
+  const [customerId, setCustomerId] = useState(preselectedCustomer);
+  const [quickCreateModal, setQuickCreateModal] = useState(false);
+
+  useEffect(() => {
+    if (preselectedCustomer && !customerId) {
+      setCustomerId(preselectedCustomer);
+    }
+  }, [preselectedCustomer]);
   const [dueDate, setDueDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 7);
@@ -581,13 +855,33 @@ function NewOrderForm() {
       return copy;
     });
   };
-  const handleQtyChange = (index, qty) => {
+  const handleQtyChange = (index, value) => {
+    if (value === '') {
+      setLines((prev) => {
+        const copy = [...prev];
+        copy[index] = { ...copy[index], quantity: '' };
+        return copy;
+      });
+      return;
+    }
+    const clean = String(value).replace(/\D/g, '');
+    const intVal = clean === '' ? '' : parseInt(clean, 10);
     setLines((prev) => {
       const copy = [...prev];
       copy[index] = {
         ...copy[index],
-        quantity: Math.max(1, qty),
+        quantity: intVal,
       };
+      return copy;
+    });
+  };
+  const handleQtyBlur = (index) => {
+    setLines((prev) => {
+      const copy = [...prev];
+      const cur = copy[index].quantity;
+      if (cur === '' || Number(cur) < 1 || !Number.isInteger(Number(cur))) {
+        copy[index] = { ...copy[index], quantity: 1 };
+      }
       return copy;
     });
   };
@@ -616,7 +910,10 @@ function NewOrderForm() {
       setLines((prev) => prev.filter((_, i) => i !== idx));
     }
   };
-  const subtotal = lines.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const subtotal = lines.reduce(
+    (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
+    0
+  );
   const handleSubmit = (e) => {
     e.preventDefault();
     setFormError(null);
@@ -624,9 +921,9 @@ function NewOrderForm() {
       setFormError('Please select a customer.');
       return;
     }
-    const validLines = lines.filter((l) => l.productId && l.quantity > 0);
+    const validLines = lines.filter((l) => l.productId && Number(l.quantity) > 0);
     if (!validLines.length) {
-      setFormError('Please add at least one valid product line with quantity > 0.');
+      setFormError('Please add at least one valid product line with a whole number quantity > 0.');
       return;
     }
     orderMutation.mutate({
@@ -636,7 +933,7 @@ function NewOrderForm() {
       notes: notes || undefined,
       lines: validLines.map((l) => ({
         productId: l.productId,
-        quantity: Number(l.quantity),
+        quantity: Math.max(1, Math.round(Number(l.quantity))),
         unitPrice: Number(l.unitPrice),
       })),
     });
@@ -688,10 +985,19 @@ function NewOrderForm() {
             <select
               className="p2-select"
               value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}
+              onChange={(e) => {
+                if (e.target.value === '__NEW__') {
+                  setQuickCreateModal(true);
+                  return;
+                }
+                setCustomerId(e.target.value);
+              }}
               required
             >
               <option value="">Select customer…</option>
+              <option value="__NEW__" style={{ fontWeight: 600, color: '#166534' }}>
+                + Create new customer…
+              </option>
               {(customersQuery.data?.items ?? []).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} ({c.code}) - {c.city}
@@ -800,10 +1106,19 @@ function NewOrderForm() {
                   <td>
                     <input
                       type="number"
+                      step="1"
                       min="1"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       className="p2-input"
                       value={item.quantity}
-                      onChange={(e) => handleQtyChange(idx, Number(e.target.value))}
+                      onChange={(e) => handleQtyChange(idx, e.target.value)}
+                      onBlur={() => handleQtyBlur(idx)}
+                      onKeyDown={(e) => {
+                        if (['.', ',', 'e', 'E', '+', '-'].includes(e.key)) {
+                          e.preventDefault();
+                        }
+                      }}
                       required
                     />
                   </td>
@@ -825,7 +1140,7 @@ function NewOrderForm() {
                       color: '#1f3327',
                     }}
                   >
-                    {money.format(item.quantity * item.unitPrice)}
+                    {money.format((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0))}
                   </td>
                   <td>
                     {lines.length > 1 && (
@@ -917,6 +1232,221 @@ function NewOrderForm() {
           </div>
         </div>
       </form>
+
+      {quickCreateModal && (
+        <QuickCreateCustomerModal
+          factoryId={effectiveFactoryId}
+          onClose={() => setQuickCreateModal(false)}
+          onCreated={(newCustomer) => {
+            customersQuery.refetch().then(() => {
+              setCustomerId(newCustomer.id);
+            });
+            setQuickCreateModal(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function QuickCreateCustomerModal({ factoryId, onClose, onCreated }) {
+  const [name, setName] = useState('');
+  const [code, setCode] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [type, setType] = useState('BUSINESS');
+  const [error, setError] = useState(null);
+
+  const createMut = useMutation({
+    mutationFn: createCustomer,
+    onSuccess: (data) => {
+      onCreated(data);
+    },
+    onError: (err) => {
+      setError(err.message || 'Failed to create customer');
+    },
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setError('Company/Customer name is required');
+      return;
+    }
+    if (!phone.trim()) {
+      setError('Phone number is required');
+      return;
+    }
+    createMut.mutate({
+      factoryId,
+      name: name.trim(),
+      code: code.trim() || undefined,
+      contactPerson: contactPerson.trim() || undefined,
+      phone: phone.trim(),
+      email: email.trim() || undefined,
+      address: address.trim() || undefined,
+      city: city.trim() || undefined,
+      type,
+      status: 'ACTIVE',
+    });
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '16px',
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        style={{
+          background: '#fff',
+          borderRadius: '10px',
+          padding: '24px',
+          width: '520px',
+          maxWidth: '100%',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <h3 style={{ margin: 0, fontSize: '18px', color: '#111827' }}>Create New Customer</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ border: 0, background: 'none', cursor: 'pointer', color: '#6b7280' }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {error && (
+          <div
+            style={{
+              padding: '10px 14px',
+              background: '#fef2f2',
+              color: '#dc2626',
+              borderRadius: '6px',
+              fontSize: '13px',
+              marginBottom: '16px',
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <FormRow label="Customer / Company Name" required>
+            <input
+              className="p2-input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Bengal Fibre Mills Ltd."
+              required
+              autoFocus
+            />
+          </FormRow>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <FormRow label="Customer Code" hint="Leave empty to auto-generate">
+              <input
+                className="p2-input"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="e.g. C-012"
+              />
+            </FormRow>
+            <FormRow label="Customer Type">
+              <select className="p2-select" value={type} onChange={(e) => setType(e.target.value)}>
+                <option value="BUSINESS">Business</option>
+                <option value="INDIVIDUAL">Individual</option>
+              </select>
+            </FormRow>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <FormRow label="Contact Person">
+              <input
+                className="p2-input"
+                value={contactPerson}
+                onChange={(e) => setContactPerson(e.target.value)}
+                placeholder="e.g. Rafiqul Islam"
+              />
+            </FormRow>
+            <FormRow label="Phone Number" required>
+              <input
+                className="p2-input"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+8801700000000"
+                required
+              />
+            </FormRow>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <FormRow label="Email">
+              <input
+                type="email"
+                className="p2-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="info@company.com"
+              />
+            </FormRow>
+            <FormRow label="City">
+              <input
+                className="p2-input"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="e.g. Dhaka, Chittagong"
+              />
+            </FormRow>
+          </div>
+
+          <FormRow label="Business address">
+            <input
+              className="p2-input"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="e.g. 45 Motijheel C/A, Dhaka"
+            />
+          </FormRow>
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '10px',
+              marginTop: '10px',
+              paddingTop: '16px',
+              borderTop: '1px solid #f3f4f6',
+            }}
+          >
+            <Button variant="outline" type="button" onClick={onClose} disabled={createMut.isPending}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-emerald-800 hover:bg-emerald-900 text-white"
+              disabled={createMut.isPending}
+            >
+              {createMut.isPending ? 'Creating…' : 'Create & Select Customer'}
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

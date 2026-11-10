@@ -1,6 +1,6 @@
 import { Prisma, OrderStatus, ProductType, InventoryMovementType } from '@prisma/client';
 import { recordInventoryMovement } from './inventory.js';
-import { recordAudit } from './audit.js';
+import { recordAudit, resolveActorId } from './audit.js';
 export class OrderOperationError extends Error {
   status;
   constructor(message, status = 400) {
@@ -87,6 +87,7 @@ export async function createSalesOrder(prisma, actorId, input) {
     };
   });
   const total = subtotal;
+  const safeActorId = await resolveActorId(prisma, actorId);
   const order = await prisma.salesOrder.create({
     data: {
       orderNumber,
@@ -99,7 +100,7 @@ export async function createSalesOrder(prisma, actorId, input) {
       total,
       deliveryAddress: input.deliveryAddress ?? customer.address,
       notes: input.notes ?? null,
-      createdById: actorId,
+      createdById: safeActorId,
       lines: {
         create: preparedLines,
       },

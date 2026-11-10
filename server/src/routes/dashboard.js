@@ -1,7 +1,182 @@
 import { Router } from 'express';
 import { ProductType, UserRole } from '@prisma/client';
 import { requireAuth } from '../middleware/auth.js';
-export function createDashboardRouter(prisma) {
+import { getQueryClients } from '../federation.js';
+
+async function fetchBranchSnapshot(db, factoryIdFilter, factoryScope) {
+  const [
+    factories,
+    orderStats,
+    invoices,
+    payments,
+    balances,
+    thresholds,
+    recentOrders,
+    productionBatches,
+    recentBatches,
+  ] = await Promise.all([
+    db.factory.findMany({
+      where: factoryIdFilter,
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        location: true,
+      },
+      orderBy: {
+        code: 'asc',
+      },
+    }),
+    db.salesOrder.groupBy({
+      by: ['status'],
+      where: factoryScope,
+      _count: {
+        _all: true,
+      },
+      _sum: {
+        total: true,
+      },
+    }),
+    db.invoice.findMany({
+      where: {
+        ...factoryScope,
+        status: {
+          not: 'VOID',
+        },
+      },
+      select: {
+        id: true,
+        total: true,
+        paidAmount: true,
+        balanceDue: true,
+        factoryId: true,
+        status: true,
+        issueDate: true,
+      },
+    }),
+    db.payment.findMany({
+      where: factoryScope,
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        factory: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        invoice: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+          },
+        },
+      },
+      orderBy: {
+        paidAt: 'desc',
+      },
+      take: 6,
+    }),
+    db.inventoryBalance.findMany({
+      where: factoryScope,
+      include: {
+        factory: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        product: {
+          select: {
+            id: true,
+            sku: true,
+            name: true,
+            type: true,
+            unit: true,
+          },
+        },
+      },
+    }),
+    db.factoryProductThreshold.findMany({
+      where: factoryScope,
+    }),
+    db.salesOrder.findMany({
+      where: factoryScope,
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+        factory: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        orderDate: 'desc',
+      },
+      take: 6,
+    }),
+    db.productionRecord.count({
+      where: {
+        ...factoryScope,
+        status: {
+          in: ['PLANNED', 'IN_PROGRESS', 'DRAFT'],
+        },
+      },
+    }),
+    db.productionRecord.findMany({
+      where: factoryScope,
+      include: {
+        factory: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+        finishedProduct: {
+          select: {
+            id: true,
+            name: true,
+            unit: true,
+          },
+        },
+      },
+      orderBy: {
+        productionDate: 'desc',
+      },
+      take: 6,
+    }),
+  ]);
+
+  return {
+    factories,
+    orderStats,
+    invoices,
+    payments,
+    balances,
+    thresholds,
+    recentOrders,
+    productionBatches,
+    recentBatches,
+  };
+}
+
+export function createDashboardRouter(prisma, dbManager) {
   const router = Router();
   router.use(requireAuth);
   router.get('/', async (req, res, next) => {
@@ -35,164 +210,48 @@ export function createDashboardRouter(prisma) {
           }
         : {};
       const isConsolidated = user.isSuperAdmin && !requestedFactoryId;
-      const [
-        factories,
-        orderStats,
-        invoices,
-        payments,
-        balances,
-        thresholds,
-        recentOrders,
-        productionBatches,
-        recentBatches,
-      ] = await Promise.all([
-        prisma.factory.findMany({
-          where: factoryIdFilter,
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            location: true,
-          },
-          orderBy: {
-            code: 'asc',
-          },
-        }),
-        prisma.salesOrder.groupBy({
-          by: ['status'],
-          where: factoryScope,
-          _count: {
-            _all: true,
-          },
-          _sum: {
-            total: true,
-          },
-        }),
-        prisma.invoice.findMany({
-          where: {
-            ...factoryScope,
-            status: {
-              not: 'VOID',
-            },
-          },
-          select: {
-            id: true,
-            total: true,
-            paidAmount: true,
-            balanceDue: true,
-            factoryId: true,
-            status: true,
-            issueDate: true,
-          },
-        }),
-        prisma.payment.findMany({
-          where: factoryScope,
-          include: {
-            customer: {
-              select: {
-                id: true,
-                name: true,
-                code: true,
-              },
-            },
-            factory: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-              },
-            },
-            invoice: {
-              select: {
-                id: true,
-                invoiceNumber: true,
-              },
-            },
-          },
-          orderBy: {
-            paidAt: 'desc',
-          },
-          take: 6,
-        }),
-        prisma.inventoryBalance.findMany({
-          where: factoryScope,
-          include: {
-            factory: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-              },
-            },
-            product: {
-              select: {
-                id: true,
-                sku: true,
-                name: true,
-                type: true,
-                unit: true,
-              },
-            },
-          },
-        }),
-        prisma.factoryProductThreshold.findMany({
-          where: factoryScope,
-        }),
-        prisma.salesOrder.findMany({
-          where: factoryScope,
-          include: {
-            customer: {
-              select: {
-                id: true,
-                name: true,
-                code: true,
-              },
-            },
-            factory: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-              },
-            },
-          },
-          orderBy: {
-            orderDate: 'desc',
-          },
-          take: 6,
-        }),
-        prisma.productionRecord.count({
-          where: {
-            ...factoryScope,
-            status: {
-              in: ['PLANNED', 'IN_PROGRESS', 'DRAFT'],
-            },
-          },
-        }),
-        prisma.productionRecord.findMany({
-          where: factoryScope,
-          include: {
-            factory: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-              },
-            },
-            finishedProduct: {
-              select: {
-                id: true,
-                name: true,
-                unit: true,
-              },
-            },
-          },
-          orderBy: {
-            productionDate: 'desc',
-          },
-          take: 6,
-        }),
-      ]);
+
+      const clients = await getQueryClients(prisma, dbManager, requestedFactoryId);
+      const snapshots = await Promise.all(
+        clients.map((client) => fetchBranchSnapshot(client, factoryIdFilter, factoryScope))
+      );
+
+      const factories = snapshots
+        .flatMap((s) => s.factories)
+        .sort((a, b) => a.code.localeCompare(b.code));
+
+      const orderStatsMap = new Map();
+      for (const s of snapshots) {
+        for (const row of s.orderStats) {
+          const existing = orderStatsMap.get(row.status) || {
+            status: row.status,
+            _count: { _all: 0 },
+            _sum: { total: 0 },
+          };
+          existing._count._all += row._count._all;
+          existing._sum.total += Number(row._sum.total ?? 0);
+          orderStatsMap.set(row.status, existing);
+        }
+      }
+      const orderStats = Array.from(orderStatsMap.values());
+
+      const invoices = snapshots.flatMap((s) => s.invoices);
+      const payments = snapshots
+        .flatMap((s) => s.payments)
+        .sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt))
+        .slice(0, 6);
+      const balances = snapshots.flatMap((s) => s.balances);
+      const thresholds = snapshots.flatMap((s) => s.thresholds);
+      const recentOrders = snapshots
+        .flatMap((s) => s.recentOrders)
+        .sort((a, b) => new Date(b.orderDate) - new Date(a.orderDate))
+        .slice(0, 6);
+      const productionBatches = snapshots.reduce((sum, s) => sum + s.productionBatches, 0);
+      const recentBatches = snapshots
+        .flatMap((s) => s.recentBatches)
+        .sort((a, b) => new Date(b.productionDate) - new Date(a.productionDate))
+        .slice(0, 6);
+
       const totalSales = invoices.reduce((sum, inv) => sum + Number(inv.total), 0);
       const totalCollected = invoices.reduce((sum, inv) => sum + Number(inv.paidAmount), 0);
       const totalReceivables = invoices.reduce((sum, inv) => sum + Number(inv.balanceDue), 0);

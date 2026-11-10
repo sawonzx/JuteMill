@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Package, Pencil, Plus, Search, X } from 'lucide-react';
+import {
+  ArrowDownToLine,
+  ArrowLeftRight,
+  ArrowUpFromLine,
+  Info,
+  Package,
+  Pencil,
+  Plus,
+  Search,
+  SlidersHorizontal,
+} from 'lucide-react';
 import {
   ApiError,
   createProduct,
@@ -15,6 +25,7 @@ import {
   EmptyState,
   ErrorState,
   FormRow,
+  InvertedInfoIcon,
   LoadingState,
   Notice,
   PageTitle,
@@ -87,22 +98,6 @@ function ProductListPage() {
         pageSize: 12,
       }),
   });
-  const client = useQueryClient();
-  const statusMutation = useMutation({
-    mutationFn: ({ id, status: value }) => setProductStatus(id, value),
-    onSuccess: () =>
-      client.invalidateQueries({
-        queryKey: productsKey,
-      }),
-  });
-  function toggle(product) {
-    const next = product.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    if (window.confirm(`${next === 'INACTIVE' ? 'Deactivate' : 'Activate'} ${product.name}?`))
-      statusMutation.mutate({
-        id: product.id,
-        status: next,
-      });
-  }
   return (
     <div className="p2-page">
       <PageTitle
@@ -116,7 +111,6 @@ function ProductListPage() {
           ) : undefined
         }
       />
-      {statusMutation.error && <Notice>{statusMutation.error.message}</Notice>}
       <section className="p2-panel">
         <div className="p2-toolbar">
           <label className="p2-search">
@@ -180,18 +174,24 @@ function ProductListPage() {
               <table className="p2-table">
                 <thead>
                   <tr>
+                    <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
                     <th>Product</th>
                     <th>Category</th>
                     <th>Type</th>
                     <th>{isAdmin ? 'Factory stock' : 'On hand'}</th>
                     <th>Default selling price</th>
                     <th>Status</th>
-                    <th />
+                    <th className="p2-right" style={{ width: '80px', minWidth: '80px' }}>
+                      Action
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {query.data.items.map((product) => (
+                  {query.data.items.map((product, index) => (
                     <tr key={product.id}>
+                      <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                        {String((page - 1) * 10 + index + 1).padStart(2, '0')}
+                      </td>
                       <td>
                         <Link className="p2-record-link" to={`/products/${product.id}`}>
                           {product.name}
@@ -243,20 +243,8 @@ function ProductListPage() {
                           aria-label={`View ${product.name}`}
                           to={`/products/${product.id}`}
                         >
-                          <ArrowRight size={15} />
+                          <InvertedInfoIcon size={18} />
                         </Link>
-                        {isManager && (
-                          <button
-                            title={
-                              product.status === 'ACTIVE'
-                                ? 'Deactivate product'
-                                : 'Activate product'
-                            }
-                            onClick={() => toggle(product)}
-                          >
-                            {product.status === 'ACTIVE' ? <X size={15} /> : <Plus size={15} />}
-                          </button>
-                        )}
                       </td>
                     </tr>
                   ))}
@@ -328,13 +316,15 @@ function ProductFormPage({ id }) {
     }));
   const submit = (event) => {
     event.preventDefault();
+    const rawPrice = form.standardPrice;
+    const standardPrice =
+      rawPrice === '' || rawPrice == null || Number.isNaN(Number(rawPrice))
+        ? null
+        : Number(rawPrice);
     mutation.mutate({
       ...form,
-      standardPrice:
-        form.standardPrice == null || Number.isNaN(Number(form.standardPrice))
-          ? null
-          : Number(form.standardPrice),
-      description: form.description?.trim() || null,
+      standardPrice,
+      description: form.description?.trim() || '',
     });
   };
   if (!isManager)
@@ -366,8 +356,8 @@ function ProductFormPage({ id }) {
       <form className="p2-panel p2-form" onSubmit={submit}>
         {mutation.error && (
           <Notice>
-            {mutation.error instanceof ApiError && mutation.error.details.length
-              ? `${mutation.error.message} ${mutation.error.details.map((e) => e.message).join(' · ')}`
+            {mutation.error instanceof ApiError && mutation.error.details?.length
+              ? `${mutation.error.message}: ${mutation.error.details.map((e) => (e.field ? `${e.field}: ${e.message}` : e.message)).join(' · ')}`
               : mutation.error.message}
           </Notice>
         )}
@@ -460,7 +450,7 @@ function ProductFormPage({ id }) {
           >
             Cancel
           </Button>
-          <Button disabled={mutation.isPending}>
+          <Button type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? 'Saving…' : id ? 'Save changes' : 'Create product'}
           </Button>
         </div>
@@ -474,6 +464,7 @@ function ProductDetailPage({ id }) {
     queryKey: ['product', id],
     queryFn: () => getProduct(id),
   });
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
   const client = useQueryClient();
   const mutation = useMutation({
     mutationFn: (status) => setProductStatus(id, status),
@@ -484,6 +475,7 @@ function ProductDetailPage({ id }) {
       await client.invalidateQueries({
         queryKey: productsKey,
       });
+      setStatusModalOpen(false);
     },
   });
   if (query.isLoading)
@@ -521,13 +513,8 @@ function ProductDetailPage({ id }) {
               <Button
                 variant="outline"
                 onClick={() => {
-                  const status = product.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-                  if (
-                    window.confirm(
-                      `${status === 'ACTIVE' ? 'Activate' : 'Deactivate'} ${product.name}?`
-                    )
-                  )
-                    mutation.mutate(status);
+                  mutation.reset();
+                  setStatusModalOpen(true);
                 }}
               >
                 {product.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
@@ -588,67 +575,255 @@ function ProductDetailPage({ id }) {
             </div>
           </dl>
         </section>
-        <section className="p2-panel">
-          <div className="p2-panel-heading">
-            <div className="p2-icon-box">
-              <Package size={17} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minWidth: 0 }}>
+          <section className="p2-panel" style={{ overflow: 'hidden' }}>
+            <div className="p2-panel-heading">
+              <div className="p2-icon-box">
+                <Package size={17} />
+              </div>
+              <div>
+                <h2>{isAdmin ? 'Factory stock' : 'Warehouse stock'}</h2>
+                <p>
+                  {isAdmin
+                    ? 'Factory specific on-hand quantities'
+                    : 'On-hand quantities in your factory'}
+                </p>
+              </div>
             </div>
-            <div>
-              <h2>{isAdmin ? 'Factory stock' : 'Warehouse stock'}</h2>
-              <p>
-                {isAdmin
-                  ? 'Factory specific on-hand quantities'
-                  : 'On-hand quantities in your factory'}
-              </p>
-            </div>
-          </div>
-          {displayedStock.length ? (
-            <div className="p2-table-wrap">
-              <table className="p2-table">
-                <thead>
-                  <tr>
-                    {isAdmin && <th>Factory</th>}
-                    <th>Warehouse</th>
-                    <th className="p2-right">On hand</th>
-                    <th className="p2-right">Minimum stock</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayedStock.map((stock) => {
-                    const threshold = product.thresholds?.find(
-                      (item) => item.factory.id === stock.factory.id
-                    );
-                    const whName = cleanWarehouseName(stock.warehouse?.name);
-                    return (
-                      <tr key={stock.warehouse?.id || stock.factory.id}>
-                        {isAdmin && (
-                          <td>
-                            <b>{stock.factory.code}</b>
-                            <small>{stock.factory.name}</small>
+            {displayedStock.length ? (
+              <div className="p2-table-wrap">
+                <table className="p2-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
+                      {isAdmin && <th>Factory</th>}
+                      <th>Warehouse</th>
+                      <th className="p2-right">On hand</th>
+                      <th className="p2-right">Minimum stock</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayedStock.map((stock, sIdx) => {
+                      const threshold = product.thresholds?.find(
+                        (item) => item.factory.id === stock.factory.id
+                      );
+                      const whName = cleanWarehouseName(stock.warehouse?.name);
+                      return (
+                        <tr key={stock.warehouse?.id || stock.factory.id}>
+                          <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                            {String(sIdx + 1).padStart(2, '0')}
                           </td>
-                        )}
-                        <td>{whName}</td>
-                        <td className="p2-right">
-                          {stock.quantity.toLocaleString()} {product.unit}
-                        </td>
-                        <td className="p2-right">
-                          {threshold
-                            ? `${threshold.minimumQuantity.toLocaleString()} ${product.unit}`
-                            : 'Not set'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <EmptyState
-              title="No stock balances"
-              detail="Stock will appear when a movement is recorded."
-            />
+                          {isAdmin && (
+                            <td>
+                              <b>{stock.factory.code}</b>
+                              <small>{stock.factory.name}</small>
+                            </td>
+                          )}
+                          <td>{whName}</td>
+                          <td className="p2-right">
+                            {stock.quantity.toLocaleString()} {product.unit}
+                          </td>
+                          <td className="p2-right">
+                            {threshold
+                              ? `${threshold.minimumQuantity.toLocaleString()} ${product.unit}`
+                              : 'Not set'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState
+                title="No stock balances"
+                detail="Stock will appear when a movement is recorded."
+              />
+            )}
+          </section>
+          {(isManager || user?.role === 'STAFF') && (
+            <section className="p2-panel p2-action-card">
+              <div className="p2-panel-heading" style={{ padding: '0 0 12px' }}>
+                <div className="p2-icon-box">
+                  <ArrowLeftRight size={17} />
+                </div>
+                <div>
+                  <h2>Stock operations</h2>
+                  <p>
+                    {isManager
+                      ? 'Record a receipt, issue or corrected balance for this product.'
+                      : 'Record operational receipts and issues for this product.'}
+                  </p>
+                </div>
+              </div>
+              {product.status === 'ACTIVE' ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '8px',
+                    borderTop: '1px solid #edf0ed',
+                    paddingTop: '12px',
+                  }}
+                >
+                  <Link
+                    className="p2-button btn-stock-in"
+                    to={`/inventory/stock-in?productId=${encodeURIComponent(product.id)}`}
+                  >
+                    <ArrowDownToLine size={15} /> Stock in
+                  </Link>
+                  <Link
+                    className="p2-button btn-stock-out"
+                    to={`/inventory/stock-out?productId=${encodeURIComponent(product.id)}`}
+                  >
+                    <ArrowUpFromLine size={15} /> Stock out
+                  </Link>
+                  {isManager && (
+                    <Link
+                      className="p2-button btn-adjustment"
+                      to={`/inventory/adjustment?productId=${encodeURIComponent(product.id)}`}
+                    >
+                      <SlidersHorizontal size={15} /> Adjustment
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    borderTop: '1px solid #edf0ed',
+                    paddingTop: '10px',
+                    fontSize: '12.5px',
+                    color: '#6b7280',
+                  }}
+                >
+                  Activate this product to record new stock operations.
+                </div>
+              )}
+            </section>
           )}
-        </section>
+        </div>
+      </div>
+      <ProductStatusModal
+        product={statusModalOpen ? product : null}
+        isPending={mutation.isPending}
+        error={mutation.error}
+        onClose={() => {
+          if (!mutation.isPending) setStatusModalOpen(false);
+        }}
+        onConfirm={() =>
+          mutation.mutate(product.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')
+        }
+      />
+    </div>
+  );
+}
+function ProductStatusModal({ product, isPending, error, onClose, onConfirm }) {
+  useEffect(() => {
+    if (!product) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && !isPending) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [product, isPending, onClose]);
+
+  if (!product) return null;
+  const isActivating = product.status !== 'ACTIVE';
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="product-status-modal-title"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        padding: '16px',
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isPending) onClose();
+      }}
+    >
+      <div
+        style={{
+          background: '#fff',
+          borderRadius: '10px',
+          padding: '24px',
+          width: '440px',
+          maxWidth: '100%',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e5ebe7',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '8px',
+              background: isActivating ? '#ecfdf5' : '#fffbeb',
+              color: isActivating ? '#15803d' : '#b45309',
+              display: 'grid',
+              placeItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <Package size={18} />
+          </div>
+          <div>
+            <h3
+              id="product-status-modal-title"
+              style={{ margin: 0, fontSize: '17px', color: '#111827', fontWeight: 700 }}
+            >
+              {isActivating ? 'Activate Product' : 'Deactivate Product'}
+            </h3>
+            <span style={{ fontSize: '12px', color: '#6b7280' }}>
+              SKU: {product.sku}
+              {product.category ? ` · ${product.category}` : ''}
+            </span>
+          </div>
+        </div>
+        {error && (
+          <div style={{ marginBottom: '12px' }}>
+            <Notice>{error.message}</Notice>
+          </div>
+        )}
+        <p style={{ fontSize: '13.5px', color: '#4b5563', margin: '0 0 18px', lineHeight: 1.55 }}>
+          Are you sure you want to {isActivating ? 'activate' : 'deactivate'}{' '}
+          <strong>{product.name}</strong>?
+          {!isActivating &&
+            ' Inactive products remain in historical records but cannot be used in new orders or stock entries.'}
+        </p>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '10px',
+            paddingTop: '14px',
+            borderTop: '1px solid #f3f4f6',
+          }}
+        >
+          <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            className={
+              isActivating
+                ? 'bg-emerald-700 hover:bg-emerald-800 border-emerald-700 hover:border-emerald-800 text-white'
+                : 'bg-amber-600 hover:bg-amber-700 border-amber-600 hover:border-amber-700 text-white'
+            }
+            onClick={onConfirm}
+            disabled={isPending}
+          >
+            {isPending ? 'Saving…' : isActivating ? 'Activate' : 'Deactivate'}
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Building2, Pencil, Plus, Search, UserRound, X } from 'lucide-react';
+import { AlertTriangle, Building2, CheckCircle2, Pencil, Plus, Search, Trash2, UserRound, X } from 'lucide-react';
 import {
   ApiError,
   createCustomer,
+  deleteCustomer,
   getCustomer,
   getCustomers,
   getFactories,
@@ -13,9 +14,11 @@ import {
 } from '../api';
 import {
   BackLink,
+  ConfirmModal,
   EmptyState,
   ErrorState,
   FormRow,
+  InvertedInfoIcon,
   LoadingState,
   Notice,
   PageTitle,
@@ -82,21 +85,20 @@ function CustomerListPage() {
         pageSize: 10,
       }),
   });
+  const [statusModalCustomer, setStatusModalCustomer] = useState(null);
   const client = useQueryClient();
   const statusMutation = useMutation({
     mutationFn: ({ id, value }) => setCustomerStatus(id, value),
-    onSuccess: () =>
-      client.invalidateQueries({
+    onSuccess: async () => {
+      await client.invalidateQueries({
         queryKey: listKey,
-      }),
+      });
+      setStatusModalCustomer(null);
+    },
   });
   const toggleStatus = (customer) => {
-    const next = customer.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    if (window.confirm(`${next === 'INACTIVE' ? 'Deactivate' : 'Activate'} ${customer.name}?`))
-      statusMutation.mutate({
-        id: customer.id,
-        value: next,
-      });
+    statusMutation.reset();
+    setStatusModalCustomer(customer);
   };
   return (
     <div className="p2-page">
@@ -105,9 +107,14 @@ function CustomerListPage() {
         description="Factory scoped customer records and order history."
         action={
           isManager ? (
-            <Link className="p2-button primary" to="/customers/new">
-              <Plus size={15} /> Add customer
-            </Link>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <Link className="p2-button secondary" to="/trash?type=CUSTOMER">
+                <Trash2 size={14} /> Trash Can
+              </Link>
+              <Link className="p2-button primary" to="/customers/new">
+                <Plus size={15} /> Add customer
+              </Link>
+            </div>
           ) : undefined
         }
       />
@@ -165,18 +172,24 @@ function CustomerListPage() {
               <table className="p2-table customer-table">
                 <thead>
                   <tr>
+                    <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
                     <th>Customer</th>
                     <th>Contact</th>
                     {isAdmin && <th>Factory</th>}
                     <th>Type</th>
                     <th>Status</th>
                     <th className="p2-right">Created</th>
-                    <th />
+                    <th className="p2-right" style={{ width: '60px', minWidth: '60px' }}>
+                      Action
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {query.data.items.map((customer) => (
+                  {query.data.items.map((customer, index) => (
                     <tr key={customer.id}>
+                      <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                        {String((page - 1) * 10 + index + 1).padStart(2, '0')}
+                      </td>
                       <td>
                         <Link className="p2-record-link" to={`/customers/${customer.id}`}>
                           {customer.name}
@@ -208,20 +221,8 @@ function CustomerListPage() {
                           title="View details"
                           to={`/customers/${customer.id}`}
                         >
-                          <ArrowRight size={15} />
+                          <InvertedInfoIcon size={18} />
                         </Link>
-                        {isManager && (
-                          <button
-                            title={
-                              customer.status === 'ACTIVE'
-                                ? 'Deactivate customer'
-                                : 'Activate customer'
-                            }
-                            onClick={() => toggleStatus(customer)}
-                          >
-                            {customer.status === 'ACTIVE' ? <X size={15} /> : <Plus size={15} />}
-                          </button>
-                        )}
                       </td>
                     </tr>
                   ))}
@@ -241,11 +242,50 @@ function CustomerListPage() {
           />
         )}
       </section>
+      <ConfirmModal
+        open={!!statusModalCustomer}
+        title={
+          statusModalCustomer?.status === 'ACTIVE' ? 'Deactivate Customer' : 'Activate Customer'
+        }
+        subtitle={
+          statusModalCustomer
+            ? `${statusModalCustomer.code} · ${statusModalCustomer.city}`
+            : undefined
+        }
+        message={
+          statusModalCustomer ? (
+            <>
+              Are you sure you want to{' '}
+              {statusModalCustomer.status === 'ACTIVE' ? 'deactivate' : 'activate'}{' '}
+              <strong>{statusModalCustomer.name}</strong> ({statusModalCustomer.code})?
+            </>
+          ) : null
+        }
+        confirmLabel={statusModalCustomer?.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+        tone={statusModalCustomer?.status === 'ACTIVE' ? 'warning' : 'primary'}
+        icon={UserRound}
+        isPending={statusMutation.isPending}
+        error={statusMutation.error}
+        onClose={() => {
+          if (!statusMutation.isPending) setStatusModalCustomer(null);
+        }}
+        onConfirm={() => {
+          if (!statusModalCustomer) return;
+          const next = statusModalCustomer.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+          statusMutation.mutate({
+            id: statusModalCustomer.id,
+            value: next,
+          });
+        }}
+      />
     </div>
   );
 }
 function CustomerFormPage({ id }) {
   const { isAdmin, isManager, user } = useCurrentRole();
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const returnTo = searchParams.get('returnTo');
   const factories = useQuery({
     queryKey: ['factories'],
     queryFn: getFactories,
@@ -261,9 +301,15 @@ function CustomerFormPage({ id }) {
   const [form, setForm] = useState(blank);
   const [factoryId, setFactoryId] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const [customError, setCustomError] = useState('');
   useEffect(() => {
     if (user?.factory?.id && !factoryId) setFactoryId(user.factory.id);
   }, [user, factoryId]);
+  useEffect(() => {
+    if (isAdmin && !id && !factoryId && factories.data?.length) {
+      setFactoryId(factories.data[0].id);
+    }
+  }, [isAdmin, id, factoryId, factories.data]);
   useEffect(() => {
     if (existing.data && !loaded) {
       const data = existing.data;
@@ -292,7 +338,11 @@ function CustomerFormPage({ id }) {
       await client.invalidateQueries({
         queryKey: ['customer', id],
       });
-      navigate(id ? `/customers/${customer.id}` : `/customers/${customer.id}`);
+      if (returnTo) {
+        navigate(`${returnTo}${returnTo.includes('?') ? '&' : '?'}selectedCustomer=${customer.id}`);
+      } else {
+        navigate(id ? `/customers/${customer.id}` : `/customers/${customer.id}`);
+      }
     },
   });
   const update = (key, value) =>
@@ -302,10 +352,15 @@ function CustomerFormPage({ id }) {
     }));
   const submit = (event) => {
     event.preventDefault();
+    setCustomError('');
+    if (isAdmin && !id && !factoryId) {
+      setCustomError('Please select a target factory for the customer.');
+      return;
+    }
     mutation.mutate({
       ...form,
-      email: form.email?.trim() || null,
-      notes: form.notes?.trim() || null,
+      email: form.email?.trim() || '',
+      notes: form.notes?.trim() || '',
       ...(isAdmin
         ? {
             factoryId,
@@ -334,12 +389,13 @@ function CustomerFormPage({ id }) {
     );
   return (
     <div className="p2-page narrow-page">
-      <BackLink to={id ? `/customers/${id}` : '/customers'} />
+      <BackLink to={returnTo || (id ? `/customers/${id}` : '/customers')} />
       <PageTitle
         title={id ? 'Edit customer' : 'Add customer'}
         description="Maintain the factory's customer contact record."
       />
       <form className="p2-panel p2-form" onSubmit={submit}>
+        {customError && <Notice>{customError}</Notice>}
         {mutation.error && <Notice>{formatError(mutation.error)}</Notice>}
         {isAdmin && !id && (
           <FormRow label="Factory" required>
@@ -347,7 +403,10 @@ function CustomerFormPage({ id }) {
               className="p2-input"
               required
               value={factoryId}
-              onChange={(event) => setFactoryId(event.target.value)}
+              onChange={(event) => {
+                setFactoryId(event.target.value);
+                setCustomError('');
+              }}
             >
               <option value="">Select factory</option>
               {(factories.data ?? []).map((factory) => (
@@ -455,7 +514,7 @@ function CustomerFormPage({ id }) {
           >
             Cancel
           </Button>
-          <Button disabled={mutation.isPending}>
+          <Button type="submit" disabled={mutation.isPending}>
             {mutation.isPending ? 'Saving…' : id ? 'Save changes' : 'Create customer'}
           </Button>
         </div>
@@ -465,6 +524,9 @@ function CustomerFormPage({ id }) {
 }
 function CustomerDetailPage({ id }) {
   const { isManager, isAdmin } = useCurrentRole();
+  const navigate = useNavigate();
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [statusModal, setStatusModal] = useState(false);
   const query = useQuery({
     queryKey: ['customer', id],
     queryFn: () => getCustomer(id),
@@ -479,8 +541,20 @@ function CustomerDetailPage({ id }) {
       await client.invalidateQueries({
         queryKey: listKey,
       });
+      setStatusModal(false);
     },
   });
+
+  const deleteMut = useMutation({
+    mutationFn: () => deleteCustomer(id),
+    onSuccess: async () => {
+      await client.invalidateQueries({
+        queryKey: listKey,
+      });
+      navigate('/customers');
+    },
+  });
+
   if (query.isLoading)
     return (
       <div className="p2-page">
@@ -497,6 +571,8 @@ function CustomerDetailPage({ id }) {
       </div>
     );
   const customer = query.data;
+  const orderCount = customer._count?.orders ?? customer.orders?.length ?? 0;
+
   return (
     <div className="p2-page customer-detail-page">
       <BackLink to="/customers" />
@@ -513,17 +589,18 @@ function CustomerDetailPage({ id }) {
             {isManager && (
               <Button
                 variant="outline"
-                onClick={() => {
-                  const status = customer.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-                  if (
-                    window.confirm(
-                      `${status === 'ACTIVE' ? 'Activate' : 'Deactivate'} ${customer.name}?`
-                    )
-                  )
-                    mutation.mutate(status);
-                }}
+                onClick={() => setStatusModal(true)}
               >
                 {customer.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+              </Button>
+            )}
+            {isManager && (
+              <Button
+                variant="outline"
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                onClick={() => setDeleteModal(true)}
+              >
+                <Trash2 size={14} /> Delete Customer
               </Button>
             )}
           </div>
@@ -592,6 +669,7 @@ function CustomerDetailPage({ id }) {
               <table className="p2-table">
                 <thead>
                   <tr>
+                    <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
                     <th>Order</th>
                     <th>Date</th>
                     <th>Status</th>
@@ -599,8 +677,11 @@ function CustomerDetailPage({ id }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {customer.orders.map((order) => (
+                  {customer.orders.map((order, index) => (
                     <tr key={order.id}>
+                      <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                        {String(index + 1).padStart(2, '0')}
+                      </td>
                       <td>{order.orderNumber}</td>
                       <td>{new Date(order.orderDate).toLocaleDateString('en-GB')}</td>
                       <td>
@@ -625,11 +706,251 @@ function CustomerDetailPage({ id }) {
           </p>
         </section>
       </div>
+
+      {deleteModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !deleteMut.isPending) setDeleteModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: '10px',
+              padding: '24px',
+              width: '500px',
+              maxWidth: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: '#fef2f2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#dc2626',
+                  flexShrink: 0,
+                }}
+              >
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '18px', color: '#111827' }}>
+                  Delete Customer
+                </h3>
+                <small style={{ color: '#6b7280', fontSize: '12px' }}>
+                  {customer.name} · {customer.code}
+                </small>
+              </div>
+            </div>
+
+            {deleteMut.error && (
+              <div
+                style={{
+                  padding: '10px 14px',
+                  background: '#fef2f2',
+                  color: '#b91c1c',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  marginBottom: '14px',
+                  border: '1px solid #fecaca',
+                }}
+              >
+                {deleteMut.error.message || 'Failed to delete customer.'}
+              </div>
+            )}
+
+            {/* Consequent Orders Display */}
+            <div
+              style={{
+                borderRadius: '8px',
+                padding: '14px 16px',
+                marginBottom: '16px',
+                background: orderCount > 0 ? '#fff7ed' : '#f0fdf4',
+                border: orderCount > 0 ? '1px solid #fed7aa' : '1px solid #bbf7d0',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                {orderCount > 0 ? (
+                  <AlertTriangle size={18} color="#c2410c" />
+                ) : (
+                  <CheckCircle2 size={18} color="#15803d" />
+                )}
+                <strong style={{ fontSize: '14px', color: orderCount > 0 ? '#9a3412' : '#166534' }}>
+                  {orderCount > 0
+                    ? `Consequent Orders: ${orderCount} order${orderCount === 1 ? '' : 's'} found`
+                    : 'No Consequent Orders (0 orders)'}
+                </strong>
+              </div>
+
+              <div style={{ fontSize: '13px', color: orderCount > 0 ? '#7c2d12' : '#166534', lineHeight: 1.5 }}>
+                {orderCount > 0 ? (
+                  <>
+                    <p style={{ margin: '0 0 6px' }}>
+                      This customer currently has <strong>{orderCount} consequent order{orderCount === 1 ? '' : 's'}</strong> in the system.
+                    </p>
+                    {customer.orders?.length > 0 && (
+                      <div
+                        style={{
+                          background: '#fff',
+                          border: '1px solid #fed7aa',
+                          borderRadius: '6px',
+                          padding: '8px 10px',
+                          margin: '6px 0',
+                          fontSize: '12px',
+                        }}
+                      >
+                        <span style={{ color: '#6b7280', display: 'block', marginBottom: '3px' }}>
+                          Associated orders to be removed:
+                        </span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {customer.orders.map((o) => (
+                            <span
+                              key={o.id}
+                              style={{
+                                background: '#fed7aa',
+                                color: '#7c2d12',
+                                padding: '1px 6px',
+                                borderRadius: '3px',
+                                fontWeight: 600,
+                              }}
+                            >
+                              {o.orderNumber}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <span style={{ display: 'block', marginTop: '6px', fontWeight: 600, color: '#b91c1c' }}>
+                      Warning: Permanently deleting this customer will cascade and delete all {orderCount} associated order records.
+                    </span>
+                  </>
+                ) : (
+                  <p style={{ margin: 0 }}>
+                    There are 0 associated orders for this customer. Deletion is completely safe and will not impact other records.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <p style={{ fontSize: '13.5px', color: '#4b5563', margin: '0 0 16px', lineHeight: 1.5 }}>
+              Are you sure you want to permanently delete <strong>{customer.name}</strong> ({customer.code})?
+            </p>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                marginTop: '20px',
+                paddingTop: '16px',
+                borderTop: '1px solid #f3f4f6',
+              }}
+            >
+              <Button
+                variant="outline"
+                type="button"
+                onClick={() => setDeleteModal(false)}
+                disabled={deleteMut.isPending}
+              >
+                Keep Customer
+              </Button>
+              <Button
+                type="button"
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => deleteMut.mutate()}
+                disabled={deleteMut.isPending}
+              >
+                {deleteMut.isPending ? 'Deleting…' : 'Confirm Delete Customer'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {statusModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !mutation.isPending) setStatusModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: '10px',
+              padding: '24px',
+              width: '440px',
+              maxWidth: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            }}
+          >
+            <h3 style={{ margin: '0 0 10px', fontSize: '17px', color: '#111827' }}>
+              {customer.status === 'ACTIVE' ? 'Deactivate Customer' : 'Activate Customer'}
+            </h3>
+            <p style={{ fontSize: '13.5px', color: '#4b5563', margin: '0 0 18px', lineHeight: 1.5 }}>
+              Are you sure you want to {customer.status === 'ACTIVE' ? 'deactivate' : 'activate'}{' '}
+              <strong>{customer.name}</strong> ({customer.code})?
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <Button
+                variant="outline"
+                onClick={() => setStatusModal(false)}
+                disabled={mutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                className={
+                  customer.status === 'ACTIVE'
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                    : 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                }
+                onClick={() =>
+                  mutation.mutate(customer.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')
+                }
+                disabled={mutation.isPending}
+              >
+                {mutation.isPending
+                  ? 'Saving…'
+                  : customer.status === 'ACTIVE'
+                  ? 'Deactivate'
+                  : 'Activate'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 function formatError(error) {
-  return error instanceof ApiError && error.details.length
-    ? `${error.message} ${error.details.map((detail) => `${detail.field}: ${detail.message}`).join(' · ')}`
-    : error.message;
+  if (error instanceof ApiError && error.details?.length) {
+    return `${error.message}: ${error.details.map((detail) => (detail.field ? `${detail.field}: ${detail.message}` : detail.message)).join(' · ')}`;
+  }
+  return error?.message || 'Operation failed.';
 }

@@ -3,6 +3,13 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { createProductionRecord, completeProductionBatch } from '../services/production.js';
 import { recordAudit } from '../services/audit.js';
+import {
+  getQueryClients,
+  mergePaginatedLists,
+  resolveBranchClientByFactory,
+  resolveBranchClientByRecord,
+} from '../federation.js';
+
 const createBatchSchema = z.object({
   factoryId: z.string().optional(),
   rawMaterialId: z.string().min(1, 'Raw material is required'),
@@ -19,11 +26,13 @@ const createBatchSchema = z.object({
   remarks: z.string().trim().max(1000).optional().nullable(),
   notes: z.string().trim().max(1000).optional().nullable(),
 });
+
 const completeBatchSchema = z.object({
   actualQuantity: z.number().finite().positive().optional(),
   notes: z.string().trim().max(1000).optional().nullable(),
   remarks: z.string().trim().max(1000).optional().nullable(),
 });
+
 export function formatProductionRecord(b) {
   const rawQty = Number(b.rawMaterialQuantity);
   const finQty = Number(b.finishedQuantity);
@@ -32,8 +41,8 @@ export function formatProductionRecord(b) {
     ? new Date(b.productionDate).toISOString()
     : new Date().toISOString();
   const compDate = b.completedAt ? new Date(b.completedAt).toISOString() : null;
-  const supervisorName = b.createdBy?.name || 'Factory Supervisor';
-  const supervisorId = b.createdBy?.id || b.createdById || 'supervisor-1';
+  const supervisorName = b.createdBy?.name || 'Head Office Admin';
+  const supervisorId = b.createdBy?.id || b.createdById || 'hq-admin';
   const factoryCode = b.factory?.code || (b.factoryId?.includes('F-A') ? 'F-A' : 'F-B');
   const factoryName =
     b.factory?.name || (factoryCode === 'F-A' ? 'Dhaka Jute Mill' : 'Khulna Jute Mill');
@@ -88,19 +97,15 @@ export function formatProductionRecord(b) {
     remarks: b.remarks ?? null,
     notes: b.remarks ?? null,
     createdById: b.createdById,
-    createdBy: {
-      id: supervisorId,
-      name: supervisorName,
-    },
-    supervisor: {
-      id: supervisorId,
-      name: supervisorName,
-    },
+    createdBy: { id: supervisorId, name: supervisorName },
+    supervisor: { id: supervisorId, name: supervisorName },
   };
 }
-export function createProductionRouter(prisma) {
+
+export function createProductionRouter(prisma, dbManager) {
   const router = Router();
   router.use(requireAuth);
+
   router.get('/', async (req, res, next) => {
     try {
       const user = req.user;
@@ -114,144 +119,103 @@ export function createProductionRouter(prisma) {
         factoryIds = [requestedFactoryId];
       }
       const where = {
-        ...(factoryIds
-          ? {
-              factoryId: {
-                in: factoryIds,
-              },
-            }
-          : {}),
-        ...(status && status !== 'ALL'
-          ? {
-              status,
-            }
-          : {}),
+        ...(factoryIds ? { factoryId: { in: factoryIds } } : {}),
+        ...(status && status !== 'ALL' ? { status } : {}),
         ...(search
           ? {
               OR: [
-                {
-                  batchNumber: {
-                    contains: search,
-                    mode: 'insensitive',
-                  },
-                },
-                {
-                  rawMaterial: {
-                    name: {
-                      contains: search,
-                      mode: 'insensitive',
-                    },
-                  },
-                },
-                {
-                  finishedProduct: {
-                    name: {
-                      contains: search,
-                      mode: 'insensitive',
-                    },
-                  },
-                },
+                { batchNumber: { contains: search, mode: 'insensitive' } },
+                { rawMaterial: { name: { contains: search, mode: 'insensitive' } } },
+                { finishedProduct: { name: { contains: search, mode: 'insensitive' } } },
               ],
             }
           : {}),
       };
-      const [items, total] = await Promise.all([
-        prisma.productionRecord.findMany({
-          where,
-          include: {
-            factory: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-              },
-            },
-            rawMaterial: {
-              select: {
-                id: true,
-                sku: true,
-                name: true,
-                unit: true,
-              },
-            },
-            finishedProduct: {
-              select: {
-                id: true,
-                sku: true,
-                name: true,
-                unit: true,
-              },
-            },
-            createdBy: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-          orderBy: {
-            productionDate: 'desc',
-          },
-          skip: (page - 1) * pageSize,
-          take: pageSize,
-        }),
-        prisma.productionRecord.count({
-          where,
-        }),
-      ]);
-      res.json({
-        items: items.map(formatProductionRecord),
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-      });
+
+      const include = {
+        factory: { select: { id: true, code: true, name: true } },
+        rawMaterial: { select: { id: true, sku: true, name: true, unit: true } },
+        finishedProduct: { select: { id: true, sku: true, name: true, unit: true } },
+        createdBy: { select: { id: true, name: true } },
+      };
+
+      const clients = await getQueryClients(prisma, dbManager, requestedFactoryId);
+
+      if (clients.length <= 1) {
+        const db = clients[0];
+        if (!db) return res.json({ items: [], page, pageSize, total: 0, totalPages: 0 });
+        const [items, total] = await Promise.all([
+          db.productionRecord.findMany({
+            where,
+            include,
+            orderBy: { productionDate: 'desc' },
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+          }),
+          db.productionRecord.count({ where }),
+        ]);
+        return res.json({
+          items: items.map(formatProductionRecord),
+          page,
+          pageSize,
+          total,
+          totalPages: Math.ceil(total / pageSize),
+        });
+      }
+
+      const lists = await Promise.all(
+        clients.map(async (db) => {
+          const items = await db.productionRecord.findMany({
+            where,
+            include,
+            orderBy: { productionDate: 'desc' },
+          });
+          return items.map(formatProductionRecord);
+        })
+      );
+
+      res.json(
+        mergePaginatedLists(
+          lists,
+          page,
+          pageSize,
+          (a, b) => new Date(b.productionDate).getTime() - new Date(a.productionDate).getTime()
+        )
+      );
     } catch (err) {
       next(err);
     }
   });
+
   router.get('/:id', async (req, res, next) => {
     try {
       const user = req.user;
-      const batch = await prisma.productionRecord.findUnique({
-        where: {
-          id: req.params.id,
-        },
+      const db = await resolveBranchClientByRecord(
+        prisma,
+        dbManager,
+        'productionRecord',
+        req.params.id
+      );
+      if (!db) return res.status(404).json({ error: 'Production record not found.' });
+
+      const batch = await db.productionRecord.findUnique({
+        where: { id: req.params.id },
         include: {
-          factory: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              location: true,
-            },
-          },
+          factory: { select: { id: true, code: true, name: true, location: true } },
           rawMaterial: true,
           finishedProduct: true,
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
+          createdBy: { select: { id: true, name: true } },
         },
       });
-      if (!batch)
-        return res.status(404).json({
-          error: 'Production record not found.',
-        });
+      if (!batch) return res.status(404).json({ error: 'Production record not found.' });
       if (!user.canAccessFactory(batch.factoryId))
-        return res.status(403).json({
-          error: 'Access denied.',
-        });
-      const defaultWarehouse = await prisma.warehouse.findFirst({
-        where: {
-          factoryId: batch.factoryId,
-          isDefault: true,
-        },
+        return res.status(403).json({ error: 'Access denied.' });
+
+      const defaultWarehouse = await db.warehouse.findFirst({
+        where: { factoryId: batch.factoryId, isDefault: true },
       });
       const balance = defaultWarehouse
-        ? await prisma.inventoryBalance.findUnique({
+        ? await db.inventoryBalance.findUnique({
             where: {
               warehouseId_productId: {
                 warehouseId: defaultWarehouse.id,
@@ -268,6 +232,7 @@ export function createProductionRouter(prisma) {
       next(err);
     }
   });
+
   router.post('/', async (req, res, next) => {
     try {
       const user = req.user;
@@ -281,22 +246,26 @@ export function createProductionRouter(prisma) {
       let targetFactoryId = user.isSuperAdmin
         ? data.factoryId || user.factoryId
         : (user.factoryId ?? user.assignedFactoryIds[0]);
-      if (!targetFactoryId) {
-        const firstFactory = await prisma.factory.findFirst({
-          select: {
-            id: true,
-          },
-        });
-        targetFactoryId = firstFactory?.id || null;
+
+      if (!targetFactoryId && dbManager) {
+        const allFactories = await dbManager.getAllFactories();
+        targetFactoryId = allFactories[0]?.id || null;
       }
+
       if (!targetFactoryId || !user.canAccessFactory(targetFactoryId)) {
         return res.status(403).json({
           error: 'Invalid or inaccessible factory assignment.',
         });
       }
+
+      const db = await resolveBranchClientByFactory(prisma, dbManager, targetFactoryId);
+      if (!db) {
+        return res.status(404).json({ error: 'Target factory database not found.' });
+      }
+
       const rawDate = data.productionDate || data.scheduledDate;
       const prodDate = rawDate ? new Date(rawDate) : new Date();
-      const batch = await createProductionRecord(prisma, user.id, {
+      const batch = await createProductionRecord(db, user.id, {
         factoryId: targetFactoryId,
         rawMaterialId: data.rawMaterialId,
         rawMaterialQuantity: data.rawMaterialQuantity,
@@ -316,37 +285,38 @@ export function createProductionRouter(prisma) {
       next(err);
     }
   });
+
   router.post('/:id/complete', async (req, res, next) => {
     try {
       const user = req.user;
       const body = completeBatchSchema.parse(req.body || {});
-      const batch = await prisma.productionRecord.findUnique({
-        where: {
-          id: req.params.id,
-        },
+      const db = await resolveBranchClientByRecord(
+        prisma,
+        dbManager,
+        'productionRecord',
+        req.params.id
+      );
+      if (!db) return res.status(404).json({ error: 'Production batch not found.' });
+
+      const batch = await db.productionRecord.findUnique({
+        where: { id: req.params.id },
       });
-      if (!batch)
-        return res.status(404).json({
-          error: 'Production batch not found.',
-        });
+      if (!batch) return res.status(404).json({ error: 'Production batch not found.' });
       if (!user.canAccessFactory(batch.factoryId))
-        return res.status(403).json({
-          error: 'Access denied.',
-        });
-      const completed = await completeProductionBatch(prisma, batch.id, user.id, {
+        return res.status(403).json({ error: 'Access denied.' });
+
+      const completed = await completeProductionBatch(db, batch.id, user.id, {
         actualQuantity: body.actualQuantity,
         notes: body.notes || undefined,
         remarks: body.remarks || undefined,
       });
-      void recordAudit(prisma, {
+      void recordAudit(db, {
         userId: user.id,
         action: 'COMPLETE_PRODUCTION_BATCH',
         entity: 'ProductionRecord',
         entityId: batch.id,
         factoryId: batch.factoryId,
-        details: {
-          batchNumber: batch.batchNumber,
-        },
+        details: { batchNumber: batch.batchNumber },
       });
       res.json(formatProductionRecord(completed));
     } catch (err) {
@@ -358,5 +328,6 @@ export function createProductionRouter(prisma) {
       next(err);
     }
   });
+
   return router;
 }

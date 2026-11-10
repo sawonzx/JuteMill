@@ -1,4 +1,5 @@
 import { Prisma, InvoiceStatus } from '@prisma/client';
+import { resolveActorId } from './audit.js';
 export class PaymentOperationError extends Error {
   status;
   constructor(message, status = 400) {
@@ -67,6 +68,7 @@ export async function recordCustomerPayment(prisma, actorId, input) {
       const newBalanceDue = Math.max(0, Number((currentTotal - newPaidAmount).toFixed(2)));
       const newStatus = newBalanceDue <= 0.001 ? InvoiceStatus.PAID : InvoiceStatus.PART_PAID;
       const receiptNo = await generateReceiptNumber(prisma, invoice.factoryId);
+      const safeActorId = await resolveActorId(tx, actorId);
       const payment = await tx.payment.create({
         data: {
           receiptNo,
@@ -78,7 +80,7 @@ export async function recordCustomerPayment(prisma, actorId, input) {
           reference: input.reference ?? null,
           notes: input.notes ?? null,
           paidAt: input.paidAt ?? new Date(),
-          createdById: actorId,
+          createdById: safeActorId,
         },
         include: {
           customer: {

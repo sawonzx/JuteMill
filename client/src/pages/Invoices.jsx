@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Ban, Building2, CreditCard, Printer, Search } from 'lucide-react';
+import { Ban, Building2, CreditCard, Info, Pencil, Printer, Search, X } from 'lucide-react';
 import {
   createInvoice,
   getFactories,
@@ -9,6 +9,7 @@ import {
   getInvoices,
   getOrder,
   recordPayment,
+  updateInvoice,
   voidInvoice,
 } from '../api';
 import {
@@ -16,6 +17,7 @@ import {
   EmptyState,
   ErrorState,
   FormRow,
+  InvertedInfoIcon,
   LoadingState,
   Notice,
   PageTitle,
@@ -69,6 +71,7 @@ function InvoiceListView() {
     ],
     queryFn: () =>
       getInvoices({
+        q,
         search: q,
         status,
         factoryId: isAdmin ? factoryId : undefined,
@@ -142,6 +145,7 @@ function InvoiceListView() {
               <table className="p2-table">
                 <thead>
                   <tr>
+                    <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
                     <th>Invoice #</th>
                     <th>Customer</th>
                     {isAdmin && <th>Factory</th>}
@@ -150,12 +154,17 @@ function InvoiceListView() {
                     <th>Due Date</th>
                     <th className="p2-right">Total</th>
                     <th className="p2-right">Balance Due</th>
-                    <th />
+                    <th className="p2-right" style={{ width: '60px', minWidth: '60px' }}>
+                      Action
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {invoicesQuery.data.items.map((inv) => (
+                  {invoicesQuery.data.items.map((inv, index) => (
                     <tr key={inv.id}>
+                      <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                        {String((page - 1) * 10 + index + 1).padStart(2, '0')}
+                      </td>
                       <td>
                         <Link className="p2-record-link" to={`/invoices/${inv.id}`}>
                           {inv.invoiceNumber}
@@ -190,8 +199,8 @@ function InvoiceListView() {
                         </strong>
                       </td>
                       <td className="p2-actions">
-                        <Link to={`/invoices/${inv.id}`} title="View Invoice">
-                          <ArrowRight size={15} />
+                        <Link to={`/invoices/${inv.id}`} title="View Invoice Details">
+                          <InvertedInfoIcon size={18} />
                         </Link>
                       </td>
                     </tr>
@@ -411,6 +420,11 @@ function InvoiceDetailView({ id }) {
   const [payMethod, setPayMethod] = useState('BANK_TRANSFER');
   const [payRef, setPayRef] = useState('');
   const [payError, setPayError] = useState(null);
+  const [editModal, setEditModal] = useState(false);
+  const [editDueDate, setEditDueDate] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editTerms, setEditTerms] = useState('');
+  const [editError, setEditError] = useState(null);
   const {
     data: inv,
     isLoading,
@@ -419,6 +433,25 @@ function InvoiceDetailView({ id }) {
   } = useQuery({
     queryKey: ['invoice', id],
     queryFn: () => getInvoice(id),
+  });
+  const updateMut = useMutation({
+    mutationFn: () =>
+      updateInvoice(id, {
+        dueDate: editDueDate ? new Date(editDueDate).toISOString() : undefined,
+        notes: editNotes || null,
+        terms: editTerms || null,
+      }),
+    onSuccess: () => {
+      setEditModal(false);
+      void client.invalidateQueries({
+        queryKey: ['invoice', id],
+      });
+      void client.invalidateQueries({
+        queryKey: ['invoices'],
+      });
+      void refetch();
+    },
+    onError: (err) => setEditError(err.message),
   });
   const voidMut = useMutation({
     mutationFn: () => voidInvoice(id, voidReason || 'Administrative cancellation'),
@@ -484,6 +517,22 @@ function InvoiceDetailView({ id }) {
             </p>
           </div>
           <div className="p2-title-action">
+            {isManager && inv.status !== 'VOID' && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditDueDate(
+                    inv.dueDate ? new Date(inv.dueDate).toISOString().split('T')[0] : ''
+                  );
+                  setEditNotes(inv.notes || '');
+                  setEditTerms(inv.terms || '');
+                  setEditError(null);
+                  setEditModal(true);
+                }}
+              >
+                <Pencil size={15} /> Edit Invoice
+              </Button>
+            )}
             <Button variant="outline" onClick={printInvoice}>
               <Printer size={15} /> Print Invoice
             </Button>
@@ -661,6 +710,7 @@ function InvoiceDetailView({ id }) {
             >
               <thead>
                 <tr>
+                  <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
                   <th>Receipt #</th>
                   <th>Date</th>
                   <th>Method</th>
@@ -669,7 +719,7 @@ function InvoiceDetailView({ id }) {
                 </tr>
               </thead>
               <tbody>
-                {inv.payments.map((p) => {
+                {inv.payments.map((p, pIdx) => {
                   const receiptNo = p.receiptNumber || p.receiptNo || '—';
                   const pDate = p.paymentDate || p.paidAt;
                   const pMethod = (p.paymentMethod || p.method || 'BANK_TRANSFER').replace(
@@ -678,6 +728,9 @@ function InvoiceDetailView({ id }) {
                   );
                   return (
                     <tr key={p.id}>
+                      <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                        {String(pIdx + 1).padStart(2, '0')}
+                      </td>
                       <td>
                         <strong>{receiptNo}</strong>
                       </td>
@@ -857,6 +910,138 @@ function InvoiceDetailView({ id }) {
                 {voidMut.isPending ? 'Voiding…' : 'Confirm Void'}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {editModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '16px',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: '10px',
+              padding: '24px',
+              width: '500px',
+              maxWidth: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '16px',
+              }}
+            >
+              <div>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: '18px',
+                    color: '#1a2e22',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <Pencil size={17} color="#15803d" />
+                  Edit Invoice: {inv.invoiceNumber}
+                </h3>
+                <small style={{ color: '#6b7280', fontSize: '12px' }}>
+                  Customer: {inv.customer.name} · Factory: {inv.factory.code}
+                </small>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#9ca3af',
+                  padding: '4px',
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {editError && <Notice kind="error">{editError}</Notice>}
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                updateMut.mutate();
+              }}
+              style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+            >
+              <FormRow label="Payment Due Date" required>
+                <input
+                  type="date"
+                  className="p2-input"
+                  value={editDueDate}
+                  onChange={(e) => setEditDueDate(e.target.value)}
+                  required
+                />
+              </FormRow>
+
+              <FormRow label="Invoice Terms & Conditions">
+                <input
+                  type="text"
+                  className="p2-input"
+                  value={editTerms}
+                  onChange={(e) => setEditTerms(e.target.value)}
+                  placeholder="e.g. Payment due within 15 days of invoice date"
+                />
+              </FormRow>
+
+              <FormRow label="Notes & Remarks">
+                <textarea
+                  className="p2-input"
+                  rows={3}
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  placeholder="Additional notes for customer…"
+                />
+              </FormRow>
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '10px',
+                  marginTop: '10px',
+                  paddingTop: '16px',
+                  borderTop: '1px solid #f3f4f6',
+                }}
+              >
+                <Button variant="outline" type="button" onClick={() => setEditModal(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-emerald-800 hover:bg-emerald-900 text-white"
+                  disabled={updateMut.isPending}
+                >
+                  {updateMut.isPending ? 'Saving…' : 'Save Changes'}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

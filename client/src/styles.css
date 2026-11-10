@@ -47,10 +47,10 @@ a {
   z-index: 20;
 }
 .brand {
-  height: 75px;
+  min-height: 75px;
   display: flex;
   align-items: center;
-  padding: 0 21px;
+  padding: 12px 21px;
   border-bottom: 1px solid #edf0ed;
   gap: 12px;
 }

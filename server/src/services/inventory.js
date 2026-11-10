@@ -1,6 +1,6 @@
 import { Prisma, InventoryMovementType, RecordStatus } from '@prisma/client';
 import { createHash, randomUUID } from 'node:crypto';
-import { recordAudit } from './audit.js';
+import { recordAudit, resolveActorId } from './audit.js';
 export class InventoryOperationError extends Error {
   status;
   constructor(message, status = 400) {
@@ -142,6 +142,7 @@ export async function recordInventoryMovement(prisma, actorId, input, txClient) 
         quantity: fromMilli(resulting),
       },
     });
+    const safeActorId = await resolveActorId(tx, actorId);
     const movement = await tx.inventoryMovement.create({
       data: {
         idempotencyKey: idempKey,
@@ -156,7 +157,7 @@ export async function recordInventoryMovement(prisma, actorId, input, txClient) 
         reason: input.reason ?? null,
         reference: input.reference ?? null,
         remarks: input.remarks ?? null,
-        createdById: actorId,
+        createdById: safeActorId,
         transactionDate: input.transactionDate ?? new Date(),
       },
     });

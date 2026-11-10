@@ -1,0 +1,149 @@
+================================================================================
+JUTEMILL ERP - CURRENT SYSTEM ARCHITECTURE & FEATURES SUMMARY
+================================================================================
+Generated Date: November 2026
+Version: 1.0 (Distributed Multi-Database, Multi-Port Branch Architecture)
+
+--------------------------------------------------------------------------------
+1. DISTRIBUTED 3-NODE MULTI-DATABASE ARCHITECTURE
+--------------------------------------------------------------------------------
+The system operates as an autonomous, distributed 3-branch network across 3
+dedicated PostgreSQL databases and dedicated frontend/backend ports:
+
+  * MAIN OFFICE (Head Office HQ):
+    - Database     : jute_mill_main
+    - Backend Port : 4000 (http://localhost:4000)
+    - Frontend URL : http://localhost:5173
+    - Primary User : Anwar Hossain (HEAD_OFFICE_ADMIN)
+    - Scope        : Consolidated global oversight across all mills.
+
+  * FACTORY A (Dhaka Jute Mill):
+    - Database     : jute_mill_fac_a
+    - Backend Port : 4001 (http://localhost:4001)
+    - Frontend URL : http://localhost:5174
+    - Branch Users : Kamal Uddin (Manager), Salma Begum (Accountant),
+                     Mizanur Rahman (Staff)
+    - Scope        : Strictly isolated to Factory A operations.
+
+  * FACTORY B (Khulna Jute Mill):
+    - Database     : jute_mill_fac_b
+    - Backend Port : 4002 (http://localhost:4002)
+    - Frontend URL : http://localhost:5175
+    - Branch Users : Nasreen Akter (Manager), Rafiq Ahmed (Accountant),
+                     Shamima Chowdhury (Staff)
+    - Scope        : Strictly isolated to Factory B operations.
+
+--------------------------------------------------------------------------------
+2. ONE-COMMAND STARTUP
+--------------------------------------------------------------------------------
+Start all 3 backend API servers and all 3 frontend apps with a single command
+from inside the client folder (or project root):
+
+    cd client
+    npm run dev
+
+Automatically launches:
+  * Backend Port 4000 (jute_mill_main)
+  * Backend Port 4001 (jute_mill_fac_a)
+  * Backend Port 4002 (jute_mill_fac_b)
+  * Frontend Port 5173 (Main Office UI)
+  * Frontend Port 5174 (Factory A UI)
+  * Frontend Port 5175 (Factory B UI)
+
+--------------------------------------------------------------------------------
+3. OPERATIONAL MODULES ACROSS DEDICATED PORTS
+--------------------------------------------------------------------------------
+Operational features present on every dedicated factory port (Ports 5174 & 5175):
+  1. Sales Orders (/sales)
+     - View orders, create orders, confirm, fulfill, and cancel orders.
+  2. Invoices & Billing (/invoices)
+     - Issue customer invoices, view balances, void/cancel invoices.
+  3. Finance & Ledger (/finance)
+     - Record incoming customer receipts, view accounts receivable.
+  4. Inventory & Godowns (/inventory)
+     - Warehouse balances, raw jute & finished goods stock movements,
+       batch production, and transfer adjustments.
+  5. Catalog & Customers (/products, /customers)
+     - Product SKUs, standard price lists, customer directories.
+  6. Operational Reports (/reports)
+     - Branch sales reports, order fulfillments, and CSV exports.
+  7. Branch User Management (/admin)
+     - Create and edit local staff and accountant accounts.
+
+Exclusive to Head Office Main Admin (Port 5173 only):
+  * Mill Factories configuration tab (register/edit factory units).
+  * Company Profile master settings.
+  * System-wide consolidated audit logs.
+  * Higher feature: "System Administration" (admin:manage).
+  * Multi-branch consolidated dashboard and factory switcher filter.
+
+--------------------------------------------------------------------------------
+4. ROLE HIERARCHY & USER MANAGEMENT RULES
+--------------------------------------------------------------------------------
+  * HEAD OFFICE ADMIN (Main Admin — Anwar Hossain):
+    - Highest authority in the entire system.
+    - Only role that can assign higher features (System Administration).
+    - Can create, edit, activate, deactivate, or delete all branch staff,
+      accountants, and Factory Admins (Kamal Uddin, Nasreen Akter).
+    - Own account in table displays a clean "You" badge (no unnecessary
+      edit option to prevent accidental lockout).
+
+  * FACTORY ADMINS (Factory Managers — Kamal Uddin / Nasreen Akter):
+    - Dedicated to their respective factory branch (Factory A / Factory B).
+    - Cannot edit their own account nor deactivate themselves (displays "You").
+    - Cannot assign or select higher features like "System Administration".
+    - Can create, edit, activate, and deactivate Staff and Accountants within
+      their own factory.
+    - Cannot assign Factory Manager or Head Office Admin roles.
+    - Strict backend enforcement: direct API self-edit returns 403 Forbidden.
+
+  * ACCOUNTANTS:
+    - Invoices, payments, financial ledgers, customer records, and reports.
+
+  * STAFF:
+    - Basic operations, orders viewing/creating, godown stock movements.
+
+--------------------------------------------------------------------------------
+5. PERMISSIONS & ACCESSIBILITY CONFIGURATION
+--------------------------------------------------------------------------------
+  * Add User Modal:
+    - Assigned Mill Factory positioned cleanly above System Role.
+    - System Role defaults to placeholder: "Select a role…".
+    - "Accessibility & Permissions Configuration" appears only after selecting
+      a role.
+    - Modal dismissals: Top-right "✕" close button, backdrop click-outside,
+      and Esc key.
+
+  * Point-and-Click Granular Permissions:
+    - Role defaults pre-populate automatically.
+    - Admins can check/uncheck any specific permission to grant or revoke.
+    - Visual indicators: "+ Custom Granted" (blue), "Role Default" (green),
+      and "Revoked" (amber).
+    - Quick action buttons: "Reset Defaults", "Grant All", "Clear".
+
+  * Port Scope Enforcement in Permissions:
+    - Main Admin sees all categories including "System Governance & Administration"
+      (marked as "★ Head Office Exclusive").
+    - Factory Admins only see features present on their dedicated port. Higher
+      features like System Administration are completely excluded from their view.
+    - "Grant All" for Factory Admin grants only the 16 port-level features.
+
+  * Cross-Node Two-Way Synchronization:
+    - When users are created, updated, or deleted on any branch, changes are
+      saved in the branch database AND synchronized across to the Master
+      Database (jute_mill_main), ensuring Head Office has a unified directory.
+    - Password updates, permission changes, and status updates sync across nodes.
+
+--------------------------------------------------------------------------------
+6. DATABASE SCRIPTS & UTILITIES
+--------------------------------------------------------------------------------
+  * Provision and migrate all 3 databases:
+      npm run db:provision
+
+  * Seed and enforce branch isolation data:
+      npm run db:seed:nodes
+
+  * Build client application:
+      npm --workspace client run build
+================================================================================
+

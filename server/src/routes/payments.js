@@ -4,6 +4,13 @@ import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { recordCustomerPayment } from '../services/payments.js';
 import { recordAudit } from '../services/audit.js';
+import {
+  formatActor,
+  getQueryClients,
+  mergePaginatedLists,
+  resolveBranchClientByRecord,
+} from '../federation.js';
+
 const paymentSchema = z.object({
   invoiceId: z.string().min(1),
   amount: z.number().finite().positive(),
@@ -15,9 +22,29 @@ const paymentSchema = z.object({
   paidAt: z.string().optional().nullable(),
   paymentDate: z.string().optional().nullable(),
 });
-export function createPaymentsRouter(prisma) {
+
+function formatPaymentListItem(p) {
+  return {
+    ...p,
+    receiptNumber: p.receiptNo,
+    paymentMethod: p.method,
+    paymentDate: p.paidAt.toISOString(),
+    reference: p.reference,
+    remarks: p.notes,
+    amount: Number(p.amount),
+    recordedBy: formatActor(p.createdBy, 'Head Office Admin'),
+    invoice: {
+      ...p.invoice,
+      total: Number(p.invoice.total),
+      balanceDue: Number(p.invoice.balanceDue),
+    },
+  };
+}
+
+export function createPaymentsRouter(prisma, dbManager) {
   const router = Router();
   router.use(requireAuth);
+
   router.get('/', async (req, res, next) => {
     try {
       const user = req.user;
@@ -26,164 +53,101 @@ export function createPaymentsRouter(prisma) {
       const customerId = req.query.customerId;
       const invoiceId = req.query.invoiceId;
       const method = req.query.method;
-      const search = req.query.q?.trim();
+      const search = (req.query.q || req.query.search)?.trim();
       const requestedFactoryId = req.query.factoryId;
       let factoryIds = user.accessibleFactoryIds;
       if (requestedFactoryId && user.canAccessFactory(requestedFactoryId)) {
         factoryIds = [requestedFactoryId];
       }
       const where = {
-        ...(factoryIds
-          ? {
-              factoryId: {
-                in: factoryIds,
-              },
-            }
-          : {}),
-        ...(customerId
-          ? {
-              customerId,
-            }
-          : {}),
-        ...(invoiceId
-          ? {
-              invoiceId,
-            }
-          : {}),
-        ...(method
-          ? {
-              method,
-            }
-          : {}),
+        ...(factoryIds ? { factoryId: { in: factoryIds } } : {}),
+        ...(customerId ? { customerId } : {}),
+        ...(invoiceId ? { invoiceId } : {}),
+        ...(method ? { method } : {}),
         ...(search
           ? {
               OR: [
-                {
-                  receiptNo: {
-                    contains: search,
-                    mode: 'insensitive',
-                  },
-                },
-                {
-                  reference: {
-                    contains: search,
-                    mode: 'insensitive',
-                  },
-                },
-                {
-                  customer: {
-                    name: {
-                      contains: search,
-                      mode: 'insensitive',
-                    },
-                  },
-                },
-                {
-                  invoice: {
-                    invoiceNumber: {
-                      contains: search,
-                      mode: 'insensitive',
-                    },
-                  },
-                },
+                { receiptNo: { contains: search, mode: 'insensitive' } },
+                { reference: { contains: search, mode: 'insensitive' } },
+                { customer: { name: { contains: search, mode: 'insensitive' } } },
+                { customer: { code: { contains: search, mode: 'insensitive' } } },
+                { invoice: { invoiceNumber: { contains: search, mode: 'insensitive' } } },
               ],
             }
           : {}),
       };
-      const [items, total] = await Promise.all([
-        prisma.payment.findMany({
-          where,
-          include: {
-            customer: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-              },
-            },
-            factory: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-              },
-            },
-            invoice: {
-              select: {
-                id: true,
-                invoiceNumber: true,
-                total: true,
-                balanceDue: true,
-                status: true,
-              },
-            },
-            createdBy: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-          orderBy: {
-            paidAt: 'desc',
-          },
-          skip: (page - 1) * pageSize,
-          take: pageSize,
-        }),
-        prisma.payment.count({
-          where,
-        }),
-      ]);
-      res.json({
-        items: items.map((p) => ({
-          ...p,
-          receiptNumber: p.receiptNo,
-          paymentMethod: p.method,
-          paymentDate: p.paidAt.toISOString(),
-          reference: p.reference,
-          remarks: p.notes,
-          amount: Number(p.amount),
-          recordedBy: p.createdBy
-            ? {
-                id: p.createdBy.id,
-                name: p.createdBy.name,
-              }
-            : {
-                id: 'sys',
-                name: 'System',
-              },
-          invoice: {
-            ...p.invoice,
-            total: Number(p.invoice.total),
-            balanceDue: Number(p.invoice.balanceDue),
-          },
-        })),
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-      });
+
+      const include = {
+        customer: { select: { id: true, code: true, name: true } },
+        factory: { select: { id: true, code: true, name: true } },
+        invoice: {
+          select: { id: true, invoiceNumber: true, total: true, balanceDue: true, status: true },
+        },
+        createdBy: { select: { id: true, name: true } },
+      };
+
+      const clients = await getQueryClients(prisma, dbManager, requestedFactoryId);
+
+      if (clients.length <= 1) {
+        const db = clients[0];
+        if (!db) return res.json({ items: [], page, pageSize, total: 0, totalPages: 0 });
+        const [items, total] = await Promise.all([
+          db.payment.findMany({
+            where,
+            include,
+            orderBy: { paidAt: 'desc' },
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+          }),
+          db.payment.count({ where }),
+        ]);
+        return res.json({
+          items: items.map(formatPaymentListItem),
+          page,
+          pageSize,
+          total,
+          totalPages: Math.ceil(total / pageSize),
+        });
+      }
+
+      const lists = await Promise.all(
+        clients.map(async (db) => {
+          const items = await db.payment.findMany({
+            where,
+            include,
+            orderBy: { paidAt: 'desc' },
+          });
+          return items.map(formatPaymentListItem);
+        })
+      );
+
+      res.json(
+        mergePaginatedLists(
+          lists,
+          page,
+          pageSize,
+          (a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
+        )
+      );
     } catch (err) {
       next(err);
     }
   });
+
   router.post('/', async (req, res, next) => {
     try {
       const user = req.user;
       const data = paymentSchema.parse(req.body);
-      const invoice = await prisma.invoice.findUnique({
-        where: {
-          id: data.invoiceId,
-        },
+      const db = await resolveBranchClientByRecord(prisma, dbManager, 'invoice', data.invoiceId);
+      if (!db) return res.status(404).json({ error: 'Invoice not found.' });
+
+      const invoice = await db.invoice.findUnique({
+        where: { id: data.invoiceId },
       });
-      if (!invoice)
-        return res.status(404).json({
-          error: 'Invoice not found.',
-        });
+      if (!invoice) return res.status(404).json({ error: 'Invoice not found.' });
       if (!user.canAccessFactory(invoice.factoryId))
-        return res.status(403).json({
-          error: 'Access denied.',
-        });
+        return res.status(403).json({ error: 'Access denied.' });
+
       const resolvedMethod = data.paymentMethod ?? data.method ?? PaymentMethod.BANK_TRANSFER;
       const resolvedNotes = data.remarks ?? data.notes ?? undefined;
       const resolvedDate = data.paymentDate
@@ -191,7 +155,8 @@ export function createPaymentsRouter(prisma) {
         : data.paidAt
           ? new Date(data.paidAt)
           : undefined;
-      const result = await recordCustomerPayment(prisma, user.id, {
+
+      const result = await recordCustomerPayment(db, user.id, {
         invoiceId: data.invoiceId,
         amount: data.amount,
         method: resolvedMethod,
@@ -199,7 +164,8 @@ export function createPaymentsRouter(prisma) {
         notes: resolvedNotes,
         paidAt: resolvedDate,
       });
-      void recordAudit(prisma, {
+
+      void recordAudit(db, {
         userId: user.id,
         action: 'RECORD_PAYMENT',
         entity: 'Payment',
@@ -211,6 +177,7 @@ export function createPaymentsRouter(prisma) {
           invoice: invoice.invoiceNumber,
         },
       });
+
       res.status(201).json({
         payment: {
           ...result.payment,
@@ -227,6 +194,7 @@ export function createPaymentsRouter(prisma) {
       next(err);
     }
   });
+
   router.get('/ledger', async (req, res, next) => {
     try {
       const user = req.user;
@@ -236,91 +204,56 @@ export function createPaymentsRouter(prisma) {
       if (requestedFactoryId && user.canAccessFactory(requestedFactoryId)) {
         factoryIds = [requestedFactoryId];
       }
-      const factoryScope = factoryIds
-        ? {
-            factoryId: {
-              in: factoryIds,
-            },
-          }
-        : {};
-      const customerScope = customerId
-        ? {
-            customerId,
-          }
-        : {};
-      const [invoices, payments, selectedCustomer] = await Promise.all([
-        prisma.invoice.findMany({
-          where: {
-            ...factoryScope,
-            ...customerScope,
-            status: {
-              not: 'VOID',
-            },
-          },
-          include: {
-            customer: {
-              select: {
-                id: true,
-                name: true,
-                code: true,
-              },
-            },
-            factory: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-              },
-            },
-          },
-          orderBy: {
-            issueDate: 'asc',
-          },
-        }),
-        prisma.payment.findMany({
-          where: {
-            ...factoryScope,
-            ...customerScope,
-          },
-          include: {
-            customer: {
-              select: {
-                id: true,
-                name: true,
-                code: true,
-              },
-            },
-            invoice: {
-              select: {
-                id: true,
-                invoiceNumber: true,
-              },
-            },
-            factory: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-              },
-            },
-          },
-          orderBy: {
-            paidAt: 'asc',
-          },
-        }),
-        customerId
-          ? prisma.customer.findUnique({
+      const factoryScope = factoryIds ? { factoryId: { in: factoryIds } } : {};
+      const customerScope = customerId ? { customerId } : {};
+
+      let clients = await getQueryClients(prisma, dbManager, requestedFactoryId);
+      if (customerId && clients.length > 1) {
+        const custClient = await resolveBranchClientByRecord(prisma, dbManager, 'customer', customerId);
+        if (custClient) {
+          clients = [custClient];
+        }
+      }
+
+      const branchResults = await Promise.all(
+        clients.map(async (db) => {
+          const [invoices, payments, selectedCustomer] = await Promise.all([
+            db.invoice.findMany({
               where: {
-                id: customerId,
+                ...factoryScope,
+                ...customerScope,
+                status: { not: 'VOID' },
               },
-              select: {
-                id: true,
-                name: true,
-                code: true,
+              include: {
+                customer: { select: { id: true, name: true, code: true } },
+                factory: { select: { id: true, code: true, name: true } },
               },
-            })
-          : null,
-      ]);
+              orderBy: { issueDate: 'asc' },
+            }),
+            db.payment.findMany({
+              where: { ...factoryScope, ...customerScope },
+              include: {
+                customer: { select: { id: true, name: true, code: true } },
+                invoice: { select: { id: true, invoiceNumber: true } },
+                factory: { select: { id: true, code: true, name: true } },
+              },
+              orderBy: { paidAt: 'asc' },
+            }),
+            customerId
+              ? db.customer.findUnique({
+                  where: { id: customerId },
+                  select: { id: true, name: true, code: true },
+                })
+              : null,
+          ]);
+          return { invoices, payments, selectedCustomer };
+        })
+      );
+
+      const invoices = branchResults.flatMap((r) => r.invoices);
+      const payments = branchResults.flatMap((r) => r.payments);
+      const selectedCustomer = branchResults.find((r) => r.selectedCustomer)?.selectedCustomer ?? null;
+
       const combined = [
         ...invoices.map((inv) => ({
           kind: 'INVOICE',
@@ -386,5 +319,6 @@ export function createPaymentsRouter(prisma) {
       next(err);
     }
   });
+
   return router;
 }

@@ -114,6 +114,7 @@ model User {
   email        String                  @unique
   passwordHash String?
   role         UserRole
+  permissions  String[]                @default([])
   factoryId    String?
   factory      Factory?                @relation(fields: [factoryId], references: [id])
   assignments  UserFactoryAssignment[]
@@ -247,8 +248,8 @@ model InventoryMovement {
   reason            String?
   reference         String?
   remarks           String?
-  createdById       String
-  createdBy         User                  @relation(fields: [createdById], references: [id])
+  createdById       String?
+  createdBy         User?                 @relation(fields: [createdById], references: [id])
   transactionDate   DateTime              @default(now())
   createdAt         DateTime              @default(now())
 
@@ -403,4 +404,20 @@ model AuditLog {
 
   @@index([factoryId, createdAt])
   @@index([entity, entityId])
+}
+
+model TrashItem {
+  id          String   @id @default(cuid())
+  entityType  String
+  entityId    String
+  title       String
+  subTitle    String?
+  factoryId   String?
+  data        Json
+  deletedById String?
+  deletedAt   DateTime @default(now())
+
+  @@index([entityType])
+  @@index([factoryId])
+  @@index([deletedAt])
 }

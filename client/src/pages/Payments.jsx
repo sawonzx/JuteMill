@@ -79,6 +79,7 @@ function ReceiptsView() {
     ],
     queryFn: () =>
       getPayments({
+        q,
         search: q,
         factoryId: isAdmin ? factoryId : undefined,
         page,
@@ -143,6 +144,7 @@ function ReceiptsView() {
             <table className="p2-table">
               <thead>
                 <tr>
+                  <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
                   <th>Receipt #</th>
                   <th>Customer</th>
                   <th>Invoice Ref</th>
@@ -154,8 +156,11 @@ function ReceiptsView() {
                 </tr>
               </thead>
               <tbody>
-                {paymentsQuery.data.items.map((p) => (
+                {paymentsQuery.data.items.map((p, index) => (
                   <tr key={p.id}>
+                    <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                      {String((page - 1) * 10 + index + 1).padStart(2, '0')}
+                    </td>
                     <td>
                       <strong
                         style={{
@@ -464,6 +469,16 @@ function CustomerLedgerView() {
   });
   const isCustomerFiltered = Boolean(selectedCustomerId);
   const selectedCustomerObj = customers.find((c) => c.id === selectedCustomerId);
+  const [ledgerSearch, setLedgerSearch] = useState('');
+  const filteredEntries = (ledgerQuery.data?.entries ?? []).filter((entry) => {
+    if (!ledgerSearch.trim()) return true;
+    const term = ledgerSearch.toLowerCase();
+    const doc = (entry.reference || entry.id || '').toLowerCase();
+    const desc = (entry.description || '').toLowerCase();
+    const cust = (entry.customer?.name || entry.customerName || '').toLowerCase();
+    const type = (entry.type || '').toLowerCase();
+    return doc.includes(term) || desc.includes(term) || cust.includes(term) || type.includes(term);
+  });
   return (
     <div
       style={{
@@ -541,6 +556,15 @@ function CustomerLedgerView() {
             </select>
           </div>
         )}
+
+        <label className="p2-search" style={{ minWidth: '240px' }}>
+          <Search size={15} />
+          <input
+            value={ledgerSearch}
+            onChange={(e) => setLedgerSearch(e.target.value)}
+            placeholder="Search ledger entries…"
+          />
+        </label>
       </div>
 
       {ledgerQuery.isLoading ? (
@@ -634,16 +658,17 @@ function CustomerLedgerView() {
                   fontSize: '12.5px',
                 }}
               >
-                {ledgerQuery.data.entries.length} transaction
-                {ledgerQuery.data.entries.length === 1 ? '' : 's'} recorded
+                {filteredEntries.length} transaction
+                {filteredEntries.length === 1 ? '' : 's'} recorded
               </span>
             </div>
 
-            {ledgerQuery.data.entries.length ? (
+            {filteredEntries.length ? (
               <div className="p2-table-wrap">
                 <table className="p2-table">
                   <thead>
                     <tr>
+                      <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
                       <th>Date</th>
                       <th>Type</th>
                       <th>Reference / Doc</th>
@@ -656,8 +681,11 @@ function CustomerLedgerView() {
                     </tr>
                   </thead>
                   <tbody>
-                    {ledgerQuery.data.entries.map((entry) => (
+                    {filteredEntries.map((entry, eIdx) => (
                       <tr key={entry.id}>
+                        <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                          {String(eIdx + 1).padStart(2, '0')}
+                        </td>
                         <td>{new Date(entry.date).toLocaleDateString('en-GB')}</td>
                         <td>
                           <span

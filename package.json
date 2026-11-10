@@ -7,7 +7,10 @@
     "server"
   ],
   "scripts": {
+    "dev": "npm --workspace client run dev",
     "build": "npm --workspace client run build",
+    "db:provision": "node server/scripts/provision-databases.js",
+    "db:seed:nodes": "node server/scripts/seed-all-nodes.js && node server/scripts/isolate-factory-databases.js",
     "db:generate": "npm --workspace server run db:generate",
     "db:migrate": "npm --workspace server run db:migrate",
     "db:seed": "npm --workspace server run db:seed",

@@ -1,6 +1,6 @@
 import { Prisma, ProductionStatus, ProductType, InventoryMovementType } from '@prisma/client';
 import { recordInventoryMovement } from './inventory.js';
-import { recordAudit } from './audit.js';
+import { recordAudit, resolveActorId } from './audit.js';
 export class ProductionOperationError extends Error {
   status;
   constructor(message, status = 400) {
@@ -68,6 +68,7 @@ export async function createProductionRecord(prisma, actorId, input) {
     );
   }
   const batchNumber = await generateBatchNumber(prisma, input.factoryId);
+  const safeActorId = await resolveActorId(prisma, actorId);
   const record = await prisma.productionRecord.create({
     data: {
       batchNumber,
@@ -80,7 +81,7 @@ export async function createProductionRecord(prisma, actorId, input) {
       status: ProductionStatus.DRAFT,
       productionDate: input.productionDate ?? new Date(),
       remarks: input.remarks ?? null,
-      createdById: actorId,
+      createdById: safeActorId,
     },
     include: {
       factory: {

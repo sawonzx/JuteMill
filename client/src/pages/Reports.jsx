@@ -265,6 +265,7 @@ function SalesReportView({ factoryId }) {
           >
             <thead>
               <tr>
+                <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
                 <th>Customer</th>
                 {isAdmin && <th>Factory</th>}
                 <th className="p2-right">Invoices</th>
@@ -272,8 +273,11 @@ function SalesReportView({ factoryId }) {
               </tr>
             </thead>
             <tbody>
-              {topCustomers.map((cust) => (
+              {topCustomers.map((cust, idx) => (
                 <tr key={cust.id}>
+                  <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                    {String(idx + 1).padStart(2, '0')}
+                  </td>
                   <td>
                     <strong>{cust.name}</strong>
                   </td>
@@ -526,6 +530,7 @@ function ReceivablesReportView({ factoryId }) {
           <table className="p2-table">
             <thead>
               <tr>
+                <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
                 <th>Customer</th>
                 {isAdmin && <th>Factory</th>}
                 <th>Contact</th>
@@ -534,8 +539,11 @@ function ReceivablesReportView({ factoryId }) {
               </tr>
             </thead>
             <tbody>
-              {customers.map((c) => (
+              {customers.map((c, cIdx) => (
                 <tr key={c.id}>
+                  <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                    {String(cIdx + 1).padStart(2, '0')}
+                  </td>
                   <td>
                     <strong>{c.name}</strong>
                     <small className="p2-subtext">{c.code}</small>
@@ -639,6 +647,7 @@ function ProductionReportView({ factoryId }) {
           <table className="p2-table">
             <thead>
               <tr>
+                <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
                 <th>Product</th>
                 <th>Unit</th>
                 <th className="p2-right">Completed Batches</th>
@@ -646,8 +655,11 @@ function ProductionReportView({ factoryId }) {
               </tr>
             </thead>
             <tbody>
-              {byProduct.map((p) => (
+              {byProduct.map((p, pIdx) => (
                 <tr key={p.productId}>
+                  <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                    {String(pIdx + 1).padStart(2, '0')}
+                  </td>
                   <td>
                     <strong>{p.productName}</strong>
                   </td>

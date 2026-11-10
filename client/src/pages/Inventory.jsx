@@ -7,18 +7,21 @@ import {
   ArrowRight,
   ArrowUpFromLine,
   Boxes,
+  ChevronLeft,
   History,
   Package,
   Search,
   SlidersHorizontal,
   TriangleAlert,
   Warehouse as WarehouseIcon,
+  X,
 } from 'lucide-react';
 import {
   getFactories,
   getInventoryBalances,
   getInventoryMovements,
   getInventorySummary,
+  getProduct,
   getProducts,
   getWarehouses,
   recordMovement,
@@ -26,6 +29,7 @@ import {
 } from '../api';
 import {
   BackLink,
+  ConfirmModal,
   EmptyState,
   ErrorState,
   FormRow,
@@ -33,6 +37,7 @@ import {
   Notice,
   PageTitle,
   Pagination,
+  SearchableProductSelect,
   TypeLabel,
   useDemoRole as useCurrentRole,
 } from './shared';
@@ -41,6 +46,7 @@ import { cleanWarehouseName } from '../lib/utils';
 const balanceKey = ['inventory-balances'];
 const summaryKey = ['inventory-summary'];
 const movementKey = ['inventory-movements'];
+const INVENTORY_OVERVIEW_PAGE_SIZE = 15;
 const qty = (value, unit) =>
   `${value.toLocaleString(undefined, {
     maximumFractionDigits: 3,
@@ -53,14 +59,13 @@ export default function InventoryPage() {
   if (path === '/inventory/stock-out') return <StockMovementPage type="STOCK_OUT" />;
   if (path === '/inventory/adjustment') return <StockMovementPage type="ADJUSTMENT" />;
   if (path === '/inventory/movements') return <MovementHistoryPage />;
-  if (path === '/inventory/low-stock') return <InventoryOverview initialStatus="LOW" />;
   return <InventoryOverview />;
 }
-function InventoryOverview({ initialStatus = '' }) {
+function InventoryOverview() {
   const { isManager, isAdmin, user } = useCurrentRole();
   const [q, setQ] = useState('');
   const [type, setType] = useState('');
-  const [stockStatus, setStockStatus] = useState(initialStatus);
+  const [stockStatus, setStockStatus] = useState('');
   const [factoryId, setFactoryId] = useState('');
   const [page, setPage] = useState(1);
   const factories = useQuery({
@@ -89,30 +94,29 @@ function InventoryOverview({ initialStatus = '' }) {
         stockStatus,
         factoryId: isAdmin ? factoryId : undefined,
         page,
-        pageSize: 100,
+        pageSize: INVENTORY_OVERVIEW_PAGE_SIZE,
       }),
   });
-  const [notice, setNotice] = useState('');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [notice, setNotice] = useState(() => location.state?.notice ?? '');
+  useEffect(() => {
+    if (location.state?.notice) {
+      setNotice(location.state.notice);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, navigate]);
   return (
     <div className="p2-page">
       <PageTitle
         title="Inventory"
         description="Factory specific balances, movement history, and reorder points."
         action={
-          <div className="p2-page-actions">
+          <div className="p2-page-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Link className="p2-button secondary" to="/inventory/movements">
               <History size={14} /> Movement history
             </Link>
-            {isManager && (
-              <Link className="p2-button secondary" to="/inventory/low-stock">
-                <TriangleAlert size={14} /> Low stock
-              </Link>
-            )}
-            {
-              <Link className="p2-button secondary" to="/products">
-                <Package size={14} /> Product catalog
-              </Link>
-            }
+            <TopStockOperations isManager={isManager} isStaff={user?.role === 'STAFF'} />
           </div>
         }
       />
@@ -221,6 +225,7 @@ function InventoryOverview({ initialStatus = '' }) {
               <table className="p2-table">
                 <thead>
                   <tr>
+                    <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
                     <th>Product</th>
                     <th>{isAdmin ? 'Factory / warehouse' : 'Warehouse'}</th>
                     <th>Type</th>
@@ -231,8 +236,11 @@ function InventoryOverview({ initialStatus = '' }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {balances.data.items.map((balance) => (
+                  {balances.data.items.map((balance, index) => (
                     <tr key={balance.id}>
+                      <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                        {String((page - 1) * INVENTORY_OVERVIEW_PAGE_SIZE + index + 1).padStart(2, '0')}
+                      </td>
                       <td>
                         <Link className="p2-record-link" to={`/products/${balance.product.id}`}>
                           {balance.product.name}
@@ -301,31 +309,29 @@ function InventoryOverview({ initialStatus = '' }) {
           />
         )}
       </section>
-      <div className="p2-history-preview">
-        <section className="p2-panel">
-          <div className="p2-panel-heading">
-            <div className="p2-icon-box">
-              <History size={17} />
-            </div>
-            <div>
-              <h2>Recent movements</h2>
-              <p>Latest stock ledger entries for your factory scope</p>
-            </div>
-            <Link className="p2-inline-link" to="/inventory/movements">
-              View history <ArrowRight size={14} />
-            </Link>
+      <section className="p2-panel">
+        <div className="p2-panel-heading">
+          <div className="p2-icon-box">
+            <History size={17} />
           </div>
-          {summary.data?.recentMovements.length ? (
-            <MovementTable rows={summary.data.recentMovements} compact />
-          ) : (
-            <EmptyState
-              title="No movements recorded"
-              detail="Stock receipts, issues and adjustments will appear here."
-            />
-          )}
-        </section>
-        <InventoryActions isManager={isManager} isStaff={user?.role === 'STAFF'} />
-      </div>
+          <div>
+            <h2>Recent movements</h2>
+            <p>Latest stock ledger entries for your factory scope</p>
+          </div>
+          <Link className="p2-inline-link" to="/inventory/movements">
+            View history <ArrowRight size={14} />
+          </Link>
+        </div>
+        {summary.data?.recentMovements.length ? (
+          <MovementTable rows={summary.data.recentMovements} />
+        ) : (
+          <EmptyState
+            title="No movements recorded"
+            detail="Stock receipts, issues and adjustments will appear here."
+          />
+        )}
+      </section>
+      <InventoryActions isManager={isManager} isStaff={user?.role === 'STAFF'} />
     </div>
   );
 }
@@ -374,6 +380,43 @@ function ThresholdEditor({ balance, onSaved }) {
     </div>
   );
 }
+function TopStockOperations({ isManager, isStaff }) {
+  const [open, setOpen] = useState(false);
+  if (!isManager && !isStaff) return null;
+
+  return (
+    <div
+      className="p2-top-stock-ops"
+      style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+    >
+      {open && (
+        <div className="p2-ops-slider">
+          <Link className="p2-button btn-stock-in" to="/inventory/stock-in">
+            <ArrowDownToLine size={14} /> Stock in
+          </Link>
+          <Link className="p2-button btn-stock-out" to="/inventory/stock-out">
+            <ArrowUpFromLine size={14} /> Stock out
+          </Link>
+          {isManager && (
+            <Link className="p2-button btn-adjustment" to="/inventory/adjustment">
+              <SlidersHorizontal size={14} /> Adjustment
+            </Link>
+          )}
+        </div>
+      )}
+      <button
+        type="button"
+        className={`p2-button ${open ? 'primary' : 'secondary'}`}
+        onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        title={open ? 'Close stock operations' : 'Open stock operations'}
+      >
+        {open ? <X size={13} /> : <ChevronLeft size={13} />}
+        Stock operations
+      </button>
+    </div>
+  );
+}
 function InventoryActions({ isManager, isStaff }) {
   if (!isManager && !isStaff)
     return (
@@ -385,7 +428,7 @@ function InventoryActions({ isManager, isStaff }) {
     );
   return (
     <section className="p2-panel p2-action-card">
-      <div className="p2-panel-heading">
+      <div className="p2-panel-heading" style={{ padding: '0 0 12px' }}>
         <div className="p2-icon-box">
           <ArrowLeftRight size={17} />
         </div>
@@ -398,15 +441,23 @@ function InventoryActions({ isManager, isStaff }) {
           </p>
         </div>
       </div>
-      <div className="p2-operation-links">
-        <Link to="/inventory/stock-in">
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '8px',
+          borderTop: '1px solid #edf0ed',
+          paddingTop: '12px',
+        }}
+      >
+        <Link className="p2-button btn-stock-in" to="/inventory/stock-in">
           <ArrowDownToLine size={15} /> Stock in
         </Link>
-        <Link to="/inventory/stock-out">
+        <Link className="p2-button btn-stock-out" to="/inventory/stock-out">
           <ArrowUpFromLine size={15} /> Stock out
         </Link>
         {isManager && (
-          <Link to="/inventory/adjustment">
+          <Link className="p2-button btn-adjustment" to="/inventory/adjustment">
             <SlidersHorizontal size={15} /> Adjustment
           </Link>
         )}
@@ -418,12 +469,18 @@ function StockMovementPage({ type }) {
   const { user, isManager } = useCurrentRole();
   const canMove = isManager || user?.role === 'STAFF';
   const canAdjust = isManager;
+  const location = useLocation();
+  const initialProductId = new URLSearchParams(location.search).get('productId') ?? '';
   const factories = useQuery({
     queryKey: ['factories'],
     queryFn: getFactories,
   });
   const [factoryId, setFactoryId] = useState('');
-  const [productId, setProductId] = useState('');
+  const [productId, setProductId] = useState(initialProductId);
+  useEffect(() => {
+    const nextProductId = new URLSearchParams(location.search).get('productId') ?? '';
+    if (nextProductId) setProductId(nextProductId);
+  }, [location.search]);
   const [warehouseId, setWarehouseId] = useState('');
   const [quantity, setQuantity] = useState('');
   const [adjustmentMode, setAdjustmentMode] = useState('SET');
@@ -442,6 +499,7 @@ function StockMovementPage({ type }) {
     if (!factoryId && user?.factory?.id) setFactoryId(user.factory.id);
     else if (!factoryId && factories.data?.length === 1) setFactoryId(factories.data[0].id);
   }, [factoryId, user, factories.data]);
+  const [productSearch, setProductSearch] = useState('');
   const products = useQuery({
     queryKey: ['products', 'stock-select'],
     queryFn: () =>
@@ -451,6 +509,43 @@ function StockMovementPage({ type }) {
         pageSize: 100,
       }),
   });
+  const hasMoreCatalog = (products.data?.total ?? 0) > (products.data?.items?.length ?? 0);
+  const searchedProducts = useQuery({
+    queryKey: ['products', 'stock-search', productSearch],
+    queryFn: () =>
+      getProducts({
+        status: 'ACTIVE',
+        q: productSearch.trim(),
+        page: 1,
+        pageSize: 100,
+      }),
+    enabled: hasMoreCatalog && productSearch.trim().length > 0,
+  });
+  const preselectedProduct = useQuery({
+    queryKey: ['product', productId],
+    queryFn: () => getProduct(productId),
+    enabled:
+      !!productId &&
+      !(products.data?.items ?? []).some((p) => p.id === productId) &&
+      !(searchedProducts.data?.items ?? []).some((p) => p.id === productId),
+  });
+  const availableProducts = useMemo(() => {
+    const base = products.data?.items ?? [];
+    const extra = searchedProducts.data?.items ?? [];
+    const pre =
+      preselectedProduct.data && preselectedProduct.data.status === 'ACTIVE'
+        ? [preselectedProduct.data]
+        : [];
+    const merged = [...base];
+    const seen = new Set(base.map((p) => p.id));
+    for (const p of [...pre, ...extra]) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        merged.push(p);
+      }
+    }
+    return merged;
+  }, [products.data?.items, searchedProducts.data?.items, preselectedProduct.data]);
   const warehouses = useQuery({
     queryKey: ['warehouses', resolvedFactory],
     queryFn: () => getWarehouses(resolvedFactory),
@@ -467,14 +562,18 @@ function StockMovementPage({ type }) {
     enabled: !!resolvedFactory,
   });
   const selectedBalance = balances.data?.items.find((item) => item.product.id === productId);
+  const selectedProduct =
+    selectedBalance?.product ||
+    availableProducts.find((item) => item.id === productId) ||
+    preselectedProduct.data;
   const mutation = useMutation({
     mutationFn: recordMovement,
     onSuccess: async (result) => {
-      setSuccess(
-        result.duplicate
-          ? 'This movement was already processed; stock was not changed again.'
-          : `${titleForMove(type)} saved successfully.`
-      );
+      const successMessage = result.duplicate
+        ? 'This movement was already processed; stock was not changed again.'
+        : `${titleForMove(type)} saved successfully.`;
+      setConfirmPayload(null);
+      setSuccess(successMessage);
       setSubmissionError('');
       setQuantity('');
       setReason('');
@@ -499,9 +598,18 @@ function StockMovementPage({ type }) {
           queryKey: ['dashboard'],
         }),
       ]);
+      navigate('/inventory', {
+        state: {
+          notice: successMessage,
+        },
+      });
     },
-    onError: (error) => setSubmissionError(error.message),
+    onError: (error) => {
+      setConfirmPayload(null);
+      setSubmissionError(error.message);
+    },
   });
+  const [confirmPayload, setConfirmPayload] = useState(null);
   const title = titleForMove(type);
   if ((type === 'ADJUSTMENT' && !canAdjust) || (type !== 'ADJUSTMENT' && !canMove))
     return (
@@ -523,15 +631,6 @@ function StockMovementPage({ type }) {
       return setSubmissionError(
         `Available stock is ${qty(selectedBalance.quantity, selectedBalance.product.unit)}. Enter a smaller quantity.`
       );
-    if (
-      type !== 'ADJUSTMENT' &&
-      window.confirm(
-        `${title} ${qty(amount, selectedBalance?.product.unit ?? '')} for the selected product?`
-      ) === false
-    )
-      return;
-    if (type === 'ADJUSTMENT' && !window.confirm(`Record this stock adjustment? Reason: ${reason}`))
-      return;
     const payload = {
       factoryId: resolvedFactory,
       ...(warehouseId
@@ -569,7 +668,7 @@ function StockMovementPage({ type }) {
           }
         : {}),
     };
-    mutation.mutate(payload);
+    setConfirmPayload(payload);
   };
   return (
     <div className="p2-page narrow-page">
@@ -609,7 +708,6 @@ function StockMovementPage({ type }) {
               onChange={(e) => {
                 setFactoryId(e.target.value);
                 setWarehouseId('');
-                setProductId('');
               }}
             >
               <option value="">Select factory</option>
@@ -622,19 +720,20 @@ function StockMovementPage({ type }) {
           </FormRow>
         )}
         <FormRow label="Product" required>
-          <select
-            className="p2-input"
-            required
+          <SearchableProductSelect
+            products={availableProducts}
             value={productId}
-            onChange={(e) => setProductId(e.target.value)}
-          >
-            <option value="">Select active product</option>
-            {(products.data?.items ?? []).map((product) => (
-              <option value={product.id} key={product.id}>
-                {product.sku} · {product.name} ({product.unit})
-              </option>
-            ))}
-          </select>
+            onChange={(nextId) => {
+              setProductId(nextId);
+              setSubmissionError('');
+            }}
+            selectedProductFallback={selectedProduct}
+            balances={balances.data?.items ?? []}
+            placeholder="Select or search product by name, SKU, or category…"
+            isLoading={products.isLoading || searchedProducts.isLoading}
+            searchQuery={productSearch}
+            onSearchQueryChange={setProductSearch}
+          />
         </FormRow>
         {warehouses.data && warehouses.data.length > 1 ? (
           <FormRow label="Warehouse">
@@ -765,6 +864,7 @@ function StockMovementPage({ type }) {
             Cancel
           </Button>
           <Button
+            type="submit"
             disabled={
               mutation.isPending ||
               products.isLoading ||
@@ -777,6 +877,46 @@ function StockMovementPage({ type }) {
           </Button>
         </div>
       </form>
+      <ConfirmModal
+        open={!!confirmPayload}
+        title={type === 'ADJUSTMENT' ? 'Confirm Stock Adjustment' : `Confirm ${title}`}
+        subtitle={
+          selectedProduct ? `${selectedProduct.name} (${selectedProduct.sku})` : undefined
+        }
+        message={
+          confirmPayload ? (
+            type === 'ADJUSTMENT' ? (
+              <>
+                Record stock adjustment (
+                <strong>
+                  {adjustmentMode === 'SET' ? 'Set balance to ' : 'Adjust by '}
+                  {qty(confirmPayload.quantity, selectedProduct?.unit ?? '')}
+                </strong>
+                )?
+                <br />
+                Reason: <strong>{confirmPayload.reason}</strong>
+              </>
+            ) : (
+              <>
+                Are you sure you want to record <strong>{title.toLowerCase()}</strong> of{' '}
+                <strong>{qty(confirmPayload.quantity, selectedProduct?.unit ?? '')}</strong> for
+                the selected product?
+              </>
+            )
+          ) : null
+        }
+        confirmLabel={`Confirm ${title}`}
+        tone={type === 'ADJUSTMENT' || type === 'STOCK_OUT' ? 'warning' : 'primary'}
+        icon={type === 'ADJUSTMENT' ? SlidersHorizontal : Package}
+        isPending={mutation.isPending}
+        error={mutation.error}
+        onClose={() => {
+          if (!mutation.isPending) setConfirmPayload(null);
+        }}
+        onConfirm={() => {
+          if (confirmPayload) mutation.mutate(confirmPayload);
+        }}
+      />
     </div>
   );
 }
@@ -831,21 +971,18 @@ function MovementHistoryPage() {
       />
       <section className="p2-panel">
         <div className="p2-toolbar">
-          <select
-            className="p2-select"
+          <SearchableProductSelect
+            compact
+            products={products.data?.items ?? []}
             value={productId}
-            onChange={(e) => {
-              setProductId(e.target.value);
+            onChange={(nextId) => {
+              setProductId(nextId);
               setPage(1);
             }}
-          >
-            <option value="">All products</option>
-            {(products.data?.items ?? []).map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.sku} · {product.name}
-              </option>
-            ))}
-          </select>
+            allOptionLabel="All products"
+            placeholder="All products"
+            isLoading={products.isLoading}
+          />
           <select
             className="p2-select"
             value={type}
@@ -929,6 +1066,7 @@ function MovementTable({ rows, compact = false }) {
       <table className="p2-table">
         <thead>
           <tr>
+            <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
             <th>Date</th>
             <th>Movement</th>
             <th>Product</th>
@@ -941,8 +1079,11 @@ function MovementTable({ rows, compact = false }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
+          {rows.map((row, rIdx) => (
             <tr key={row.id}>
+              <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                {String(rIdx + 1).padStart(2, '0')}
+              </td>
               <td>{new Date(row.transactionDate).toLocaleDateString('en-GB')}</td>
               <td>
                 <MovementType type={row.type} />
@@ -973,7 +1114,7 @@ function MovementTable({ rows, compact = false }) {
                 {row.reason || row.reference || '—'}
                 {row.reference && row.reason && <small>{row.reference}</small>}
               </td>
-              <td>{row.createdBy.name}</td>
+              <td>{row.createdBy?.name ?? 'Head Office Admin'}</td>
             </tr>
           ))}
         </tbody>

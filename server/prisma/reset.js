@@ -1,3 +1,4 @@
+import '../src/load-env.js';
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 async function main() {
@@ -7,7 +8,10 @@ async function main() {
     return;
   }
   console.log('\n⚠️  DEVELOPMENT RESET — Wiping all data…\n');
+  await prisma.trashItem.deleteMany();
+  await prisma.auditLog.deleteMany();
   await prisma.payment.deleteMany();
+  await prisma.invoiceItem.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.salesOrderLine.deleteMany();
   await prisma.salesOrder.deleteMany();
@@ -18,8 +22,10 @@ async function main() {
   await prisma.warehouse.deleteMany();
   await prisma.customer.deleteMany();
   await prisma.product.deleteMany();
+  await prisma.userFactoryAssignment.deleteMany();
   await prisma.user.deleteMany();
   await prisma.factory.deleteMany();
+  await prisma.company.deleteMany();
   console.log('  ✓ All tables cleared\n');
   console.log('Now re-seeding…\n');
   await import('./seed.js');

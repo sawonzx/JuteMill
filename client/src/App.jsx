@@ -21,6 +21,7 @@ import {
   PanelLeftClose,
   Settings,
   ShoppingCart,
+  Trash2,
   Users,
   Wallet,
   X,
@@ -35,6 +36,7 @@ import {
   YAxis,
 } from 'recharts';
 import { getDashboard, getDemoUsers, getFactories } from './api';
+import { getEffectivePermissions } from './constants/permissions';
 import CustomersPage from './pages/Customers';
 import ProductsPage from './pages/Products';
 import InventoryPage from './pages/Inventory';
@@ -43,6 +45,7 @@ import InvoicesPage from './pages/Invoices';
 import PaymentsPage from './pages/Payments';
 import ReportsPage from './pages/Reports';
 import AdminPage from './pages/Admin';
+import TrashPage from './pages/Trash';
 import './pages/phase2.css';
 import './pages/phase2-extra.css';
 const money = new Intl.NumberFormat('en-BD', {
@@ -62,47 +65,54 @@ const navItems = [
     path: '/',
     icon: LayoutDashboard,
     groups: ['all'],
+    permission: 'overview',
   },
   {
     label: 'Sales Orders',
     path: '/sales',
     icon: ShoppingCart,
     groups: ['admin', 'manager', 'accountant', 'staff'],
+    permission: 'orders:view',
   },
   {
     label: 'Invoices',
     path: '/invoices',
     icon: FileCheck,
     groups: ['admin', 'manager', 'accountant'],
+    permission: 'invoices:view',
   },
   {
     label: 'Finance & Ledger',
     path: '/finance',
     icon: Wallet,
     groups: ['admin', 'accountant'],
+    permission: 'payments:view',
   },
   {
     label: 'Inventory',
     path: '/inventory',
     icon: Boxes,
     groups: ['admin', 'manager', 'accountant', 'staff'],
+    permission: 'inventory:view',
   },
   {
     label: 'Products',
     path: '/products',
     icon: Package,
     groups: ['admin', 'manager', 'accountant', 'staff'],
+    permission: 'products:view',
   },
   {
     label: 'Customers',
     path: '/customers',
     icon: Users,
     groups: ['admin', 'manager', 'accountant'],
+    permission: 'customers:view',
   },
 ];
 const roleName = {
   HEAD_OFFICE_ADMIN: 'Head Office Admin',
-  FACTORY_MANAGER: 'Factory Manager',
+  FACTORY_MANAGER: 'Factory Admin',
   ACCOUNTANT: 'Accountant',
   STAFF: 'Staff',
 };
@@ -131,11 +141,22 @@ export default function App() {
   const queryClient = useQueryClient();
   useEffect(() => {
     if (users.length && !users.some((u) => u.id === selectedId)) {
-      setSelectedId(users.find((u) => u.role === 'HEAD_OFFICE_ADMIN')?.id ?? users[0].id);
+      const defaultUser =
+        users.find((u) => u.role === 'HEAD_OFFICE_ADMIN') ||
+        users.find((u) => u.role === 'FACTORY_MANAGER') ||
+        users[0];
+      if (defaultUser) {
+        setSelectedId(defaultUser.id);
+        localStorage.setItem('jute-demo-user-id', defaultUser.id);
+        window.dispatchEvent(new Event('demo-user-changed'));
+      }
     }
   }, [users, selectedId]);
   useEffect(() => {
-    if (selectedId) localStorage.setItem('jute-demo-user-id', selectedId);
+    if (selectedId) {
+      localStorage.setItem('jute-demo-user-id', selectedId);
+      window.dispatchEvent(new Event('demo-user-changed'));
+    }
   }, [selectedId]);
   const user = users.find((item) => item.id === selectedId);
   const factoriesQuery = useQuery({
@@ -159,9 +180,10 @@ export default function App() {
             (item) => currentPath === item.path || currentPath.startsWith(`${item.path}/`)
           )?.label ??
           {
-            '/settings': 'Administration',
-            '/admin': 'Administration',
+            '/settings': user?.role === 'HEAD_OFFICE_ADMIN' ? 'Administration' : 'User Management',
+            '/admin': user?.role === 'HEAD_OFFICE_ADMIN' ? 'Administration' : 'User Management',
             '/reports': 'Reports',
+            '/trash': 'Trash Can',
           }[currentPath] ??
           'Module'),
     [currentPath]
@@ -176,6 +198,28 @@ export default function App() {
       predicate: (q) => q.queryKey[0] !== 'demo-users',
     });
   };
+  const nodePort = typeof window !== 'undefined' ? window.location.port : '';
+  const nodeBranchInfo =
+    nodePort === '5174' || (!['5173', '5174', '5175'].includes(nodePort) && user?.factory?.code === 'F-A')
+      ? {
+          name: 'Factory A · Dhaka',
+          badgeColor: '#1d4ed8',
+          bg: '#eff6ff',
+          border: '#bfdbfe',
+        }
+      : nodePort === '5175' || (!['5173', '5174', '5175'].includes(nodePort) && user?.factory?.code === 'F-B')
+        ? {
+            name: 'Factory B · Khulna',
+            badgeColor: '#b45309',
+            bg: '#fffbeb',
+            border: '#fde68a',
+          }
+        : {
+            name: 'Main Office · HQ',
+            badgeColor: '#15803d',
+            bg: '#f0fdf4',
+            border: '#bbf7d0',
+          };
   const sidebar = <Sidebar user={user} onNavigate={() => setMobileOpen(false)} />;
   return (
     <div className="app-shell">
@@ -196,10 +240,39 @@ export default function App() {
               style={{
                 fontSize: '17px',
                 letterSpacing: '-0.01em',
+                lineHeight: 1.2,
               }}
             >
               JuteMill
             </strong>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: nodeBranchInfo.bg,
+                border: `1px solid ${nodeBranchInfo.border}`,
+                fontSize: '11px',
+                fontWeight: '700',
+                color: nodeBranchInfo.badgeColor,
+                lineHeight: 1.2,
+                marginTop: '3px',
+                width: 'fit-content',
+              }}
+            >
+              <span
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: nodeBranchInfo.badgeColor,
+                  flexShrink: 0,
+                }}
+              />
+              {nodeBranchInfo.name}
+            </div>
           </div>
           <button
             className="icon-button sidebar-close"
@@ -228,7 +301,6 @@ export default function App() {
           </div>
 
           <div className="top-actions">
-            {}
             {user?.role === 'HEAD_OFFICE_ADMIN' && currentPath === '/' && (
               <div
                 style={{
@@ -267,42 +339,54 @@ export default function App() {
             )}
 
             <div className="user-switch-wrap">
-              <button
-                className="user-switch"
-                onClick={() => setMenuOpen(!menuOpen)}
-                aria-expanded={menuOpen}
-              >
-                <span className="avatar">{initials(user?.name)}</span>
-                <span className="user-label">
-                  <b>{user?.name ?? 'Choose demo user'}</b>
-                  <small>{user ? roleName[user.role] : 'Loading identities'}</small>
-                </span>
-                <ChevronDown size={15} className="chevron" />
-              </button>
-              {menuOpen && (
+              {user?.role === 'HEAD_OFFICE_ADMIN' ? (
+                <div className="user-switch" style={{ cursor: 'default' }}>
+                  <span className="avatar">{initials(user?.name)}</span>
+                  <span className="user-label">
+                    <b>{user?.name ?? 'Anwar Hossain'}</b>
+                    <small>Head Office Admin</small>
+                  </span>
+                </div>
+              ) : (
                 <>
                   <button
-                    className="menu-dismiss"
-                    aria-label="Close user menu"
-                    onClick={() => setMenuOpen(false)}
-                  />
-                  <div className="user-menu">
-                    <div className="menu-heading">SWITCH ACCOUNTS</div>
-                    {users.map((item) => (
+                    className="user-switch"
+                    onClick={() => setMenuOpen(!menuOpen)}
+                    aria-expanded={menuOpen}
+                  >
+                    <span className="avatar">{initials(user?.name)}</span>
+                    <span className="user-label">
+                      <b>{user?.name ?? 'Select Account'}</b>
+                      <small>{user ? roleName[user.role] : 'Loading...'}</small>
+                    </span>
+                    <ChevronDown size={15} className="chevron" />
+                  </button>
+                  {menuOpen && (
+                    <>
                       <button
-                        key={item.id}
-                        className={`user-option ${item.id === selectedId ? 'selected' : ''}`}
-                        onClick={() => chooseUser(item.id)}
-                      >
-                        <span className="avatar small-avatar">{initials(item.name)}</span>
-                        <span>
-                          <b>{item.name}</b>
-                          <small>{item.factory?.name ?? 'All factories · Head Office'}</small>
-                        </span>
-                        {item.id === selectedId && <span className="selected-dot" />}
-                      </button>
-                    ))}
-                  </div>
+                        className="menu-dismiss"
+                        aria-label="Close user menu"
+                        onClick={() => setMenuOpen(false)}
+                      />
+                      <div className="user-menu">
+                        <div className="menu-heading">SWITCH ACCOUNT</div>
+                        {users.map((item) => (
+                          <button
+                            key={item.id}
+                            className={`user-option ${item.id === selectedId ? 'selected' : ''}`}
+                            onClick={() => chooseUser(item.id)}
+                          >
+                            <span className="avatar small-avatar">{initials(item.name)}</span>
+                            <span>
+                              <b>{item.name}</b>
+                              <small>{roleName[item.role]}</small>
+                            </span>
+                            {item.id === selectedId && <span className="selected-dot" />}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -325,7 +409,6 @@ export default function App() {
             <Route path="/inventory/stock-out" element={<InventoryPage />} />
             <Route path="/inventory/adjustment" element={<InventoryPage />} />
             <Route path="/inventory/movements" element={<InventoryPage />} />
-            <Route path="/inventory/low-stock" element={<InventoryPage />} />
             <Route path="/sales" element={<OrdersPage />} />
             <Route path="/sales/new" element={<OrdersPage />} />
             <Route path="/sales/:id" element={<OrdersPage />} />
@@ -337,6 +420,7 @@ export default function App() {
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/settings" element={<AdminPage />} />
+            <Route path="/trash" element={<TrashPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
@@ -346,11 +430,20 @@ export default function App() {
 }
 function Sidebar({ user, onNavigate }) {
   const key = roleKey(user);
+  const userPerms = user ? getEffectivePermissions(user.role, user.permissions || []) : [];
+  const canAccess = (item) => {
+    if (!user) return false;
+    if (user.role === 'HEAD_OFFICE_ADMIN') return true;
+    if (item.groups?.includes('all')) return true;
+    if (item.permission && userPerms.includes(item.permission)) return true;
+    return item.groups?.includes(key);
+  };
+
   return (
     <nav className="sidebar-nav">
       <div className="nav-caption">WORKSPACE</div>
       {navItems
-        .filter((item) => item.groups.includes('all') || item.groups.includes(key))
+        .filter((item) => canAccess(item))
         .map(({ label, path, icon: Icon }) => (
           <NavLink
             end={path === '/'}
@@ -365,23 +458,45 @@ function Sidebar({ user, onNavigate }) {
         ))}
 
       <div className="nav-caption nav-caption-gap">ANALYTICS & GOVERNANCE</div>
-      <NavLink
-        onClick={onNavigate}
-        to="/reports"
-        className={({ isActive }) => `nav-item ${isActive ? 'nav-active' : ''}`}
-      >
-        <ClipboardList size={17} strokeWidth={1.8} />
-        <span>Reports</span>
-      </NavLink>
+      {canAccess({ permission: 'reports:view', groups: ['admin', 'manager', 'accountant'] }) && (
+        <NavLink
+          onClick={onNavigate}
+          to="/reports"
+          className={({ isActive }) => `nav-item ${isActive ? 'nav-active' : ''}`}
+        >
+          <ClipboardList size={17} strokeWidth={1.8} />
+          <span>Reports</span>
+        </NavLink>
+      )}
 
-      {key === 'admin' && (
+      {canAccess({ permission: 'admin:manage', groups: ['admin', 'manager'] }) && (
         <NavLink
           onClick={onNavigate}
           to="/admin"
           className={({ isActive }) => `nav-item ${isActive ? 'nav-active' : ''}`}
         >
-          <Settings size={17} strokeWidth={1.8} />
-          <span>Administration</span>
+          {user?.role === 'HEAD_OFFICE_ADMIN' ? (
+            <>
+              <Settings size={17} strokeWidth={1.8} />
+              <span>Administration</span>
+            </>
+          ) : (
+            <>
+              <Users size={17} strokeWidth={1.8} />
+              <span>User Management</span>
+            </>
+          )}
+        </NavLink>
+      )}
+
+      {canAccess({ groups: ['admin', 'manager'] }) && (
+        <NavLink
+          onClick={onNavigate}
+          to="/trash"
+          className={({ isActive }) => `nav-item ${isActive ? 'nav-active' : ''}`}
+        >
+          <Trash2 size={17} strokeWidth={1.8} />
+          <span>Trash Can</span>
         </NavLink>
       )}
 
