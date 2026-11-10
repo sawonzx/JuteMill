@@ -19,7 +19,6 @@ import {
   Menu,
   Package,
   PanelLeftClose,
-  RefreshCw,
   Settings,
   ShoppingCart,
   Trash2,
@@ -643,30 +642,8 @@ function Dashboard({ query }) {
               : `Current operational performance at ${data.user.factory?.name}.`}
           </p>
         </div>
-        <div className="heading-meta" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span className="live-indicator" title="Live real-time polling active">
-            <i />
-            LIVE
-          </span>
+        <div className="heading-meta">
           <span className="heading-date">{today}</span>
-          <Button
-            variant="outline"
-            onClick={() => void query.refetch()}
-            disabled={query.isFetching}
-            title="Refresh overview data"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '5px 12px',
-              fontSize: '12px',
-              height: '32px',
-              fontWeight: 600,
-            }}
-          >
-            <RefreshCw size={12} className={query.isFetching ? 'spin-animate' : ''} />
-            <span>{query.isFetching ? 'Syncing…' : 'Refresh'}</span>
-          </Button>
         </div>
       </div>
 
