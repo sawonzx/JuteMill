@@ -199,27 +199,42 @@ export default function App() {
     });
   };
   const nodePort = typeof window !== 'undefined' ? window.location.port : '';
-  const nodeBranchInfo =
-    nodePort === '5174' || (!['5173', '5174', '5175'].includes(nodePort) && user?.factory?.code === 'F-A')
+  const nodeMode = (
+    import.meta.env.VITE_NODE_MODE ||
+    import.meta.env.VITE_NODE_ROLE ||
+    ''
+  ).toLowerCase();
+  const isFacA =
+    nodePort === '5174' ||
+    nodeMode === 'fac-a' ||
+    nodeMode === 'a' ||
+    (!nodePort && !nodeMode && user?.factory?.code === 'F-A');
+  const isFacB =
+    nodePort === '5175' ||
+    nodeMode === 'fac-b' ||
+    nodeMode === 'b' ||
+    (!nodePort && !nodeMode && user?.factory?.code === 'F-B');
+
+  const nodeBranchInfo = isFacA
+    ? {
+        name: 'Factory A · Dhaka',
+        badgeColor: '#1d4ed8',
+        bg: '#eff6ff',
+        border: '#bfdbfe',
+      }
+    : isFacB
       ? {
-          name: 'Factory A · Dhaka',
-          badgeColor: '#1d4ed8',
-          bg: '#eff6ff',
-          border: '#bfdbfe',
+          name: 'Factory B · Khulna',
+          badgeColor: '#b45309',
+          bg: '#fffbeb',
+          border: '#fde68a',
         }
-      : nodePort === '5175' || (!['5173', '5174', '5175'].includes(nodePort) && user?.factory?.code === 'F-B')
-        ? {
-            name: 'Factory B · Khulna',
-            badgeColor: '#b45309',
-            bg: '#fffbeb',
-            border: '#fde68a',
-          }
-        : {
-            name: 'Main Office · HQ',
-            badgeColor: '#15803d',
-            bg: '#f0fdf4',
-            border: '#bbf7d0',
-          };
+      : {
+          name: 'Main Office · HQ',
+          badgeColor: '#15803d',
+          bg: '#f0fdf4',
+          border: '#bbf7d0',
+        };
   const sidebar = <Sidebar user={user} onNavigate={() => setMobileOpen(false)} />;
   return (
     <div className="app-shell">
