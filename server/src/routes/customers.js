@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { CustomerType, RecordStatus } from '@prisma/client';
 import { z } from 'zod';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { getCustomerLedger } from '../services/payments.js';
 import { recordAudit } from '../services/audit.js';
 import {
@@ -62,7 +62,10 @@ async function enrichCustomerList(client, items) {
 
 export function createCustomersRouter(prisma, dbManager) {
   const router = Router();
-  router.use(requireAuth);
+  router.use(
+    requireAuth,
+    requirePermission('customers:view', 'customers:manage', 'orders:create')
+  );
 
   router.get('/', async (req, res, next) => {
     try {

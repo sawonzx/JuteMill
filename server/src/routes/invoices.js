@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { createInvoiceFromOrder, voidInvoice } from '../services/invoices.js';
 import { recordAudit } from '../services/audit.js';
 import {
@@ -32,7 +32,7 @@ function formatInvoiceListItem(inv) {
 
 export function createInvoicesRouter(prisma, dbManager) {
   const router = Router();
-  router.use(requireAuth);
+  router.use(requireAuth, requirePermission('invoices:view', 'invoices:create', 'invoices:void'));
 
   router.get('/', async (req, res, next) => {
     try {

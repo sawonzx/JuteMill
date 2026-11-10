@@ -102,6 +102,7 @@ export function createApp(dbManager, port = 4000) {
           name: true,
           email: true,
           role: true,
+          permissions: true,
           factory: {
             select: {
               id: true,

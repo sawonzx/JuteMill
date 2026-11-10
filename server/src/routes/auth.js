@@ -166,6 +166,7 @@ export function createAuthRouter(prisma) {
           name: true,
           email: true,
           role: true,
+          permissions: true,
           factory: {
             select: {
               id: true,

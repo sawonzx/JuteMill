@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { PaymentMethod } from '@prisma/client';
 import { z } from 'zod';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requirePermission } from '../middleware/auth.js';
 import { recordCustomerPayment } from '../services/payments.js';
 import { recordAudit } from '../services/audit.js';
 import {
@@ -43,7 +43,7 @@ function formatPaymentListItem(p) {
 
 export function createPaymentsRouter(prisma, dbManager) {
   const router = Router();
-  router.use(requireAuth);
+  router.use(requireAuth, requirePermission('payments:view', 'payments:create'));
 
   router.get('/', async (req, res, next) => {
     try {

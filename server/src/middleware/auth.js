@@ -144,6 +144,25 @@ export function requireRole(...roles) {
     });
   };
 }
+export function requirePermission(...permissions) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        error: 'Authentication required.',
+      });
+    }
+    if (req.user.isSuperAdmin) {
+      return next();
+    }
+    const hasAny = permissions.some((perm) => req.user.hasPermission(perm));
+    if (hasAny) {
+      return next();
+    }
+    return res.status(403).json({
+      error: `Access denied. Requires one of permissions: [${permissions.join(', ')}].`,
+    });
+  };
+}
 export function requireFactoryScope(getFactoryId) {
   return (req, res, next) => {
     if (!req.user) {

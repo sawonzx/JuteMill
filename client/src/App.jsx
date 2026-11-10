@@ -72,42 +72,42 @@ const navItems = [
     path: '/sales',
     icon: ShoppingCart,
     groups: ['admin', 'manager', 'accountant', 'staff'],
-    permission: 'orders:view',
+    permission: ['orders:view', 'orders:create'],
   },
   {
     label: 'Invoices',
     path: '/invoices',
     icon: FileCheck,
     groups: ['admin', 'manager', 'accountant'],
-    permission: 'invoices:view',
+    permission: ['invoices:view', 'invoices:create'],
   },
   {
     label: 'Finance & Ledger',
     path: '/finance',
     icon: Wallet,
     groups: ['admin', 'accountant'],
-    permission: 'payments:view',
+    permission: ['payments:view', 'payments:create'],
   },
   {
     label: 'Inventory',
     path: '/inventory',
     icon: Boxes,
     groups: ['admin', 'manager', 'accountant', 'staff'],
-    permission: 'inventory:view',
+    permission: ['inventory:view', 'inventory:manage'],
   },
   {
     label: 'Products',
     path: '/products',
     icon: Package,
     groups: ['admin', 'manager', 'accountant', 'staff'],
-    permission: 'products:view',
+    permission: ['products:view', 'products:manage'],
   },
   {
     label: 'Customers',
     path: '/customers',
     icon: Users,
     groups: ['admin', 'manager', 'accountant'],
-    permission: 'customers:view',
+    permission: ['customers:view', 'customers:manage'],
   },
 ];
 const roleName = {
@@ -195,11 +195,14 @@ function ProtectedRoute({ user, permission, groups, children }) {
   let allowed = false;
   if (user.role === 'HEAD_OFFICE_ADMIN') {
     allowed = true;
-  } else if (groups?.includes('all')) {
-    allowed = true;
-  } else if (permission && userPerms.includes(permission)) {
-    allowed = true;
-  } else if (groups?.includes(key)) {
+  } else if (permission) {
+    const requiredPerms = Array.isArray(permission) ? permission : [permission];
+    if (requiredPerms.some((p) => userPerms.includes(p))) {
+      allowed = true;
+    } else if (groups?.includes(key)) {
+      allowed = true;
+    }
+  } else if (groups?.includes(key) || groups?.includes('all')) {
     allowed = true;
   }
 
@@ -498,11 +501,11 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard query={dashboardQuery} />} />
 
-            {/* Customers - admin, manager, accountant (BLOCKED FOR STAFF) */}
+            {/* Customers - admin, manager, accountant, or anyone with customers permission */}
             <Route
               path="/customers"
               element={
-                <ProtectedRoute user={user} permission="customers:view" groups={['admin', 'manager', 'accountant']}>
+                <ProtectedRoute user={user} permission={['customers:view', 'customers:manage']} groups={['admin', 'manager', 'accountant']}>
                   <CustomersPage />
                 </ProtectedRoute>
               }
@@ -518,7 +521,7 @@ export default function App() {
             <Route
               path="/customers/:id"
               element={
-                <ProtectedRoute user={user} permission="customers:view" groups={['admin', 'manager', 'accountant']}>
+                <ProtectedRoute user={user} permission={['customers:view', 'customers:manage']} groups={['admin', 'manager', 'accountant']}>
                   <CustomersPage />
                 </ProtectedRoute>
               }
@@ -634,11 +637,11 @@ export default function App() {
               }
             />
 
-            {/* Invoices - admin, manager, accountant (BLOCKED FOR STAFF) */}
+            {/* Invoices - admin, manager, accountant, or anyone with invoices permission */}
             <Route
               path="/invoices"
               element={
-                <ProtectedRoute user={user} permission="invoices:view" groups={['admin', 'manager', 'accountant']}>
+                <ProtectedRoute user={user} permission={['invoices:view', 'invoices:create']} groups={['admin', 'manager', 'accountant']}>
                   <InvoicesPage />
                 </ProtectedRoute>
               }
@@ -646,17 +649,17 @@ export default function App() {
             <Route
               path="/invoices/:id"
               element={
-                <ProtectedRoute user={user} permission="invoices:view" groups={['admin', 'manager', 'accountant']}>
+                <ProtectedRoute user={user} permission={['invoices:view', 'invoices:create']} groups={['admin', 'manager', 'accountant']}>
                   <InvoicesPage />
                 </ProtectedRoute>
               }
             />
 
-            {/* Finance & Ledger - admin, accountant (BLOCKED FOR STAFF & MANAGER) */}
+            {/* Finance & Ledger - admin, accountant, or anyone with payments permission */}
             <Route
               path="/finance"
               element={
-                <ProtectedRoute user={user} permission="payments:view" groups={['admin', 'accountant']}>
+                <ProtectedRoute user={user} permission={['payments:view', 'payments:create']} groups={['admin', 'accountant']}>
                   <PaymentsPage />
                 </ProtectedRoute>
               }
@@ -664,17 +667,17 @@ export default function App() {
             <Route
               path="/payments"
               element={
-                <ProtectedRoute user={user} permission="payments:view" groups={['admin', 'accountant']}>
+                <ProtectedRoute user={user} permission={['payments:view', 'payments:create']} groups={['admin', 'accountant']}>
                   <PaymentsPage />
                 </ProtectedRoute>
               }
             />
 
-            {/* Reports - admin, manager, accountant (BLOCKED FOR STAFF) */}
+            {/* Reports - admin, manager, accountant, or anyone with reports permission */}
             <Route
               path="/reports"
               element={
-                <ProtectedRoute user={user} permission="reports:view" groups={['admin', 'manager', 'accountant']}>
+                <ProtectedRoute user={user} permission={['reports:view', 'reports:export']} groups={['admin', 'manager', 'accountant']}>
                   <ReportsPage />
                 </ProtectedRoute>
               }
@@ -722,7 +725,10 @@ function Sidebar({ user, onNavigate }) {
     if (!user) return false;
     if (user.role === 'HEAD_OFFICE_ADMIN') return true;
     if (item.groups?.includes('all')) return true;
-    if (item.permission && userPerms.includes(item.permission)) return true;
+    if (item.permission) {
+      const perms = Array.isArray(item.permission) ? item.permission : [item.permission];
+      if (perms.some((p) => userPerms.includes(p))) return true;
+    }
     return item.groups?.includes(key);
   };
 
