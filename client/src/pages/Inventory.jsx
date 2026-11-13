@@ -107,7 +107,7 @@ function InventoryOverview() {
     }
   }, [location.state, location.pathname, navigate]);
   return (
-    <div className="p2-page">
+    <div className="p2-page inventory-page">
       <PageTitle
         title="Inventory"
         description="Factory specific balances, movement history, and reorder points."
@@ -211,9 +211,11 @@ function InventoryOverview() {
               ))}
             </select>
           )}
-          <span className="p2-filter-label">
-            <SlidersHorizontal size={14} /> {balances.data?.total ?? '—'} items
-          </span>
+          <div className="p2-toolbar-right">
+            <span className="p2-toolbar-count">
+              {balances.data?.total ?? balances.data?.items?.length ?? 0} items
+            </span>
+          </div>
         </div>
         {balances.isLoading ? (
           <LoadingState label="Loading factory stock…" />
@@ -222,10 +224,10 @@ function InventoryOverview() {
         ) : balances.data?.items.length ? (
           <>
             <div className="p2-table-wrap">
-              <table className="p2-table">
+              <table className="p2-table inventory-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
+                    <th>#</th>
                     <th>Product</th>
                     <th>{isAdmin ? 'Factory / warehouse' : 'Warehouse'}</th>
                     <th>Type</th>
@@ -238,7 +240,7 @@ function InventoryOverview() {
                 <tbody>
                   {balances.data.items.map((balance, index) => (
                     <tr key={balance.id}>
-                      <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                      <td>
                         {String((page - 1) * INVENTORY_OVERVIEW_PAGE_SIZE + index + 1).padStart(2, '0')}
                       </td>
                       <td>
@@ -958,7 +960,7 @@ function MovementHistoryPage() {
     queryFn: () => getInventoryMovements(params),
   });
   return (
-    <div className="p2-page">
+    <div className="p2-page inventory-page">
       <BackLink to="/inventory" />
       <PageTitle
         title="Movement history"
@@ -1035,6 +1037,11 @@ function MovementHistoryPage() {
               }}
             />
           </label>
+          <div className="p2-toolbar-right">
+            <span className="p2-toolbar-count">
+              {query.data?.total ?? query.data?.items?.length ?? 0} movements
+            </span>
+          </div>
         </div>
         {query.isLoading ? (
           <LoadingState label="Loading movement history…" />
@@ -1063,10 +1070,10 @@ function MovementTable({ rows, compact = false }) {
   const { isAdmin } = useCurrentRole();
   return (
     <div className="p2-table-wrap">
-      <table className="p2-table">
+      <table className="p2-table inventory-table">
         <thead>
           <tr>
-            <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
+            <th>#</th>
             <th>Date</th>
             <th>Movement</th>
             <th>Product</th>
@@ -1081,7 +1088,7 @@ function MovementTable({ rows, compact = false }) {
         <tbody>
           {rows.map((row, rIdx) => (
             <tr key={row.id}>
-              <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+              <td>
                 {String(rIdx + 1).padStart(2, '0')}
               </td>
               <td>{new Date(row.transactionDate).toLocaleDateString('en-GB')}</td>

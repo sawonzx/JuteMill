@@ -13,7 +13,7 @@ import {
 const userCreateSchema = z.object({
   name: z.string().trim().min(2).max(100),
   email: z.string().trim().email(),
-  password: z.string().min(6).optional(),
+  password: z.string().min(1).optional(),
   role: z.nativeEnum(UserRole),
   permissions: z.array(z.string()).optional(),
   factoryId: z.string().nullable().optional(),
@@ -23,13 +23,7 @@ const userCreateSchema = z.object({
 const userUpdateSchema = z.object({
   name: z.string().trim().min(2).max(100).optional(),
   email: z.string().trim().email().optional(),
-  password: z
-    .string()
-    .optional()
-    .nullable()
-    .refine((val) => !val || val.trim().length >= 6, {
-      message: 'Password must be at least 6 characters if provided.',
-    }),
+  password: z.string().optional().nullable(),
   role: z.nativeEnum(UserRole).optional(),
   permissions: z.array(z.string()).optional(),
   factoryId: z.string().nullable().optional(),
@@ -152,7 +146,7 @@ export function createAdminRouter(prisma, dbManager) {
               'Only the Head Office Main Admin can assign higher features like System Administration.',
           });
         }
-        data.factoryId = user.factoryId;
+        data.factoryId = user.factoryId || user.factory?.id || data.factoryId;
       }
 
       const existing = await findEmailOwner(data.email);
@@ -317,7 +311,7 @@ export function createAdminRouter(prisma, dbManager) {
               'Only the Head Office Main Admin can assign higher features like System Administration.',
           });
         }
-        data.factoryId = user.factoryId;
+        data.factoryId = user.factoryId || user.factory?.id || data.factoryId;
       }
 
       if (data.email && data.email !== target.email) {

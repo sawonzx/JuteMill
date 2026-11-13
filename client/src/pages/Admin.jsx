@@ -379,8 +379,8 @@ function UsersManagementView() {
                         )}
 
                         {u.role !== 'HEAD_OFFICE_ADMIN' &&
-                        !isSelf &&
-                        (isAdmin || u.role !== 'FACTORY_MANAGER') ? (
+                          !isSelf &&
+                          (isAdmin || u.role !== 'FACTORY_MANAGER') ? (
                           u.active ? (
                             <Button
                               variant="outline"
@@ -401,7 +401,7 @@ function UsersManagementView() {
                               }
                             >
                               {toggleUserActive.isPending &&
-                              toggleUserActive.variables?.id === u.id
+                                toggleUserActive.variables?.id === u.id
                                 ? 'Updating…'
                                 : 'Deactivate'}
                             </Button>
@@ -980,7 +980,18 @@ function EditUserModal({ user, onClose }) {
       setErrorMsg('Email address is required.');
       return;
     }
-    if (role !== 'HEAD_OFFICE_ADMIN' && !factoryId) {
+    const effectiveFactoryId =
+      role === 'HEAD_OFFICE_ADMIN'
+        ? null
+        : factoryId ||
+          user.factoryId ||
+          user.factory?.id ||
+          currentUser?.factory?.id ||
+          currentUser?.factoryId ||
+          factoriesQuery.data?.[0]?.id ||
+          null;
+
+    if (role !== 'HEAD_OFFICE_ADMIN' && !effectiveFactoryId) {
       setErrorMsg('Please select a factory assignment for factory personnel.');
       return;
     }
@@ -991,10 +1002,10 @@ function EditUserModal({ user, onClose }) {
       role,
       permissions: isAdmin ? permissions : permissions.filter((p) => p !== 'admin:manage'),
       active,
-      factoryId: role === 'HEAD_OFFICE_ADMIN' ? null : factoryId,
+      factoryId: effectiveFactoryId,
     };
-    if (password.trim()) {
-      payload.password = password.trim();
+    if (password) {
+      payload.password = password;
     }
 
     updateMut.mutate(payload);
@@ -1013,43 +1024,46 @@ function EditUserModal({ user, onClose }) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.45)',
+        background: 'rgba(0,0,0,0.5)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 9999,
         padding: '16px',
       }}
-      onClick={onClose}
     >
       <div
         style={{
           background: '#fff',
-          borderRadius: '8px',
-          padding: '24px',
+          borderRadius: '10px',
           width: '740px',
           maxWidth: '95%',
           maxHeight: '90vh',
-          overflowY: 'auto',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Off-white Title Header */}
         <div
           style={{
+            background: '#f8faf9',
+            borderBottom: '1px solid #e5e7eb',
+            padding: '16px 24px',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '14px',
           }}
         >
-          <div>
-            <h3 style={{ margin: '0 0 2px', fontSize: '18px', color: '#1a2e22' }}>
+          <div style={{ textAlign: 'left' }}>
+            <h3 style={{ margin: '0 0 2px', fontSize: '18px', fontWeight: 700, color: '#1a2e22', letterSpacing: '-0.2px', textAlign: 'left', lineHeight: 1.3 }}>
               {isAdmin && user.id === currentUser?.id
                 ? `Edit My Account · ${user.name}`
                 : `Edit User · ${user.name}`}
             </h3>
-            <div style={{ fontSize: '12.5px', color: '#6b7280' }}>
+            <div style={{ fontSize: '12.5px', color: '#6b7280', textAlign: 'left' }}>
               {user.email} ·{' '}
               {user.role === 'HEAD_OFFICE_ADMIN'
                 ? 'Head Office Administrator (Consolidated HQ)'
@@ -1061,8 +1075,8 @@ function EditUserModal({ user, onClose }) {
             onClick={onClose}
             aria-label="Close"
             style={{
-              background: 'none',
-              border: 'none',
+              background: '#ffffff',
+              border: '1px solid #e5e7eb',
               cursor: 'pointer',
               padding: '6px',
               borderRadius: '6px',
@@ -1077,7 +1091,7 @@ function EditUserModal({ user, onClose }) {
               e.currentTarget.style.color = '#111827';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.backgroundColor = '#ffffff';
               e.currentTarget.style.color = '#6b7280';
             }}
             title="Cancel / Close (Esc)"
@@ -1086,200 +1100,208 @@ function EditUserModal({ user, onClose }) {
           </button>
         </div>
 
-        {errorMsg && <Notice kind="error">{errorMsg}</Notice>}
+        {/* Scrollable Modal Content */}
+        <div
+          style={{
+            padding: '24px',
+            overflowY: 'auto',
+          }}
+        >
+          {errorMsg && <Notice kind="error">{errorMsg}</Notice>}
 
-        <form onSubmit={handleSubmit}>
-          <FormRow label="Full Name" required>
-            <input
-              type="text"
-              className="p2-input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Tariqul Islam"
-              required
-            />
-          </FormRow>
-
-          <FormRow label="Email Address" required>
-            <input
-              type="email"
-              className="p2-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="e.g. tariqul@juteworks.demo"
-              required
-            />
-          </FormRow>
-
-          <FormRow
-            label="New Password"
-            hint="Leave blank to keep existing password unchanged"
-          >
-            <input
-              type="password"
-              className="p2-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="•••••••••••• (Leave blank to keep current)"
-            />
-          </FormRow>
-
-          {/* Assigned Mill Factory on top of System Role */}
-          <FormRow
-            label="Assigned Mill Factory"
-            required={role !== 'HEAD_OFFICE_ADMIN'}
-            hint={role === 'HEAD_OFFICE_ADMIN' ? 'Consolidated across all mills (HQ)' : undefined}
-          >
-            {role === 'HEAD_OFFICE_ADMIN' ? (
-              <div
+          <form onSubmit={handleSubmit}>
+            <FormRow label="Full Name" required>
+              <input
+                type="text"
                 className="p2-input"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  background: '#f9fafb',
-                  color: '#15803d',
-                  fontWeight: 600,
-                }}
-              >
-                <Building2 size={15} style={{ marginRight: '8px', color: '#059669' }} />
-                <span>All Factories (Consolidated · Head Office)</span>
-              </div>
-            ) : isAdmin ? (
-              <select
-                className="p2-select"
-                value={factoryId}
-                onChange={(e) => setFactoryId(e.target.value)}
-                required={role !== 'HEAD_OFFICE_ADMIN'}
-              >
-                <option value="">Select factory…</option>
-                {factoriesQuery.data?.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.code} · {f.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <div
-                className="p2-input"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  background: '#f9fafb',
-                  color: '#374151',
-                  fontWeight: 600,
-                }}
-              >
-                <Building2 size={15} style={{ marginRight: '8px', color: '#059669' }} />
-                <span>
-                  {user.factory?.name || currentUser?.factory?.name || 'Assigned Factory'} (
-                  {user.factory?.code || currentUser?.factory?.code || 'Branch'})
-                </span>
-              </div>
-            )}
-          </FormRow>
-
-          {/* System Role */}
-          <FormRow
-            label="System Role"
-            required
-            hint={
-              role === 'HEAD_OFFICE_ADMIN'
-                ? 'Primary Head Office Administrator role'
-                : undefined
-            }
-          >
-            {role === 'HEAD_OFFICE_ADMIN' ? (
-              <div
-                className="p2-input"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  background: '#f9fafb',
-                  color: '#15803d',
-                  fontWeight: 600,
-                }}
-              >
-                <ShieldCheck size={15} style={{ marginRight: '8px', color: '#15803d' }} />
-                <span>Head Office Admin (Consolidated Control)</span>
-              </div>
-            ) : (
-              <select
-                className="p2-select"
-                value={role}
-                onChange={(e) => handleRoleChange(e.target.value)}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Tariqul Islam"
                 required
-              >
-                <option value="STAFF">Staff (Basic Operations & Godown)</option>
-                <option value="ACCOUNTANT">Accountant (Invoices & Billing)</option>
-                {isAdmin && (
-                  <>
-                    <option value="FACTORY_MANAGER">
-                      Factory Admin (Full Branch Control)
-                    </option>
-                    <option value="HEAD_OFFICE_ADMIN">
-                      Head Office Admin (Consolidated Control)
-                    </option>
-                  </>
-                )}
-              </select>
-            )}
-          </FormRow>
-
-          {/* Account Status toggle */}
-          {user.role !== 'HEAD_OFFICE_ADMIN' && user.id !== currentUser?.id && (
-            <FormRow label="Account Status">
-              <label
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={active}
-                  onChange={(e) => setActive(e.target.checked)}
-                  style={{ width: '16px', height: '16px', accentColor: '#15803d' }}
-                />
-                <span style={{ fontWeight: 600, color: active ? '#15803d' : '#9ca3af' }}>
-                  {active ? 'Active (User can sign in)' : 'Inactive (Access disabled)'}
-                </span>
-              </label>
+              />
             </FormRow>
-          )}
 
-          {/* Permissions matrix */}
-          <PermissionsSelector
-            role={role}
-            permissions={permissions}
-            onChange={setPermissions}
-            isAdmin={isAdmin}
-          />
+            <FormRow label="Email Address" required>
+              <input
+                type="email"
+                className="p2-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="e.g. tariqul@juteworks.demo"
+                required
+              />
+            </FormRow>
 
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '8px',
-              marginTop: '22px',
-              borderTop: '1px solid #e5e7eb',
-              paddingTop: '16px',
-            }}
-          >
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="bg-emerald-800 hover:bg-emerald-900 text-white"
-              disabled={updateMut.isPending}
+            <FormRow
+              label="New Password"
+              hint="Leave blank to keep existing password unchanged"
             >
-              {updateMut.isPending ? 'Saving…' : 'Save Changes'}
-            </Button>
-          </div>
-        </form>
+              <input
+                type="password"
+                className="p2-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="•••••••••••• (Leave blank to keep current)"
+              />
+            </FormRow>
+
+            {/* Assigned Mill Factory on top of System Role */}
+            <FormRow
+              label="Assigned Mill Factory"
+              required={role !== 'HEAD_OFFICE_ADMIN'}
+              hint={role === 'HEAD_OFFICE_ADMIN' ? 'Consolidated across all mills (HQ)' : undefined}
+            >
+              {role === 'HEAD_OFFICE_ADMIN' ? (
+                <div
+                  className="p2-input"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: '#f9fafb',
+                    color: '#15803d',
+                    fontWeight: 600,
+                  }}
+                >
+                  <Building2 size={15} style={{ marginRight: '8px', color: '#059669' }} />
+                  <span>All Factories (Consolidated · Head Office)</span>
+                </div>
+              ) : isAdmin ? (
+                <select
+                  className="p2-select"
+                  value={factoryId}
+                  onChange={(e) => setFactoryId(e.target.value)}
+                  required={role !== 'HEAD_OFFICE_ADMIN'}
+                >
+                  <option value="">Select factory…</option>
+                  {factoriesQuery.data?.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.code} · {f.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div
+                  className="p2-input"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: '#f9fafb',
+                    color: '#374151',
+                    fontWeight: 600,
+                  }}
+                >
+                  <Building2 size={15} style={{ marginRight: '8px', color: '#059669' }} />
+                  <span>
+                    {user.factory?.name || currentUser?.factory?.name || 'Assigned Factory'} (
+                    {user.factory?.code || currentUser?.factory?.code || 'Branch'})
+                  </span>
+                </div>
+              )}
+            </FormRow>
+
+            {/* System Role */}
+            <FormRow
+              label="System Role"
+              required
+              hint={
+                role === 'HEAD_OFFICE_ADMIN'
+                  ? 'Primary Head Office Administrator role'
+                  : undefined
+              }
+            >
+              {role === 'HEAD_OFFICE_ADMIN' ? (
+                <div
+                  className="p2-input"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: '#f9fafb',
+                    color: '#15803d',
+                    fontWeight: 600,
+                  }}
+                >
+                  <ShieldCheck size={15} style={{ marginRight: '8px', color: '#15803d' }} />
+                  <span>Head Office Admin (Consolidated Control)</span>
+                </div>
+              ) : (
+                <select
+                  className="p2-select"
+                  value={role}
+                  onChange={(e) => handleRoleChange(e.target.value)}
+                  required
+                >
+                  <option value="STAFF">Staff (Basic Operations & Godown)</option>
+                  <option value="ACCOUNTANT">Accountant (Invoices & Billing)</option>
+                  {isAdmin && (
+                    <>
+                      <option value="FACTORY_MANAGER">
+                        Factory Admin (Full Branch Control)
+                      </option>
+                      <option value="HEAD_OFFICE_ADMIN">
+                        Head Office Admin (Consolidated Control)
+                      </option>
+                    </>
+                  )}
+                </select>
+              )}
+            </FormRow>
+
+            {/* Account Status toggle */}
+            {user.role !== 'HEAD_OFFICE_ADMIN' && user.id !== currentUser?.id && (
+              <FormRow label="Account Status">
+                <label
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={active}
+                    onChange={(e) => setActive(e.target.checked)}
+                    style={{ width: '16px', height: '16px', accentColor: '#15803d' }}
+                  />
+                  <span style={{ fontWeight: 600, color: active ? '#15803d' : '#9ca3af' }}>
+                    {active ? 'Active (User can sign in)' : 'Inactive (Access disabled)'}
+                  </span>
+                </label>
+              </FormRow>
+            )}
+
+            {/* Permissions matrix */}
+            <PermissionsSelector
+              role={role}
+              permissions={permissions}
+              onChange={setPermissions}
+              isAdmin={isAdmin}
+            />
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '8px',
+                marginTop: '22px',
+                borderTop: '1px solid #e5e7eb',
+                paddingTop: '16px',
+              }}
+            >
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="bg-emerald-800 hover:bg-emerald-900 text-white"
+                disabled={updateMut.isPending}
+              >
+                {updateMut.isPending ? 'Saving…' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -1294,8 +1316,21 @@ function CreateUserModal({ onClose }) {
   });
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('password123');
-  const [factoryId, setFactoryId] = useState(() => currentUser?.factoryId || '');
+  const [password, setPassword] = useState('');
+  const defaultFactoryId =
+    currentUser?.factory?.id || currentUser?.factoryId || factoriesQuery.data?.[0]?.id || '';
+  const [factoryId, setFactoryId] = useState(defaultFactoryId);
+
+  useEffect(() => {
+    if (!factoryId) {
+      const autoId =
+        currentUser?.factory?.id || currentUser?.factoryId || factoriesQuery.data?.[0]?.id || '';
+      if (autoId) {
+        setFactoryId(autoId);
+      }
+    }
+  }, [currentUser, factoriesQuery.data, factoryId]);
+
   const [role, setRole] = useState('');
   const [permissions, setPermissions] = useState([]);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -1327,7 +1362,16 @@ function CreateUserModal({ onClose }) {
       setErrorMsg('Please select a system role.');
       return;
     }
-    if (role !== 'HEAD_OFFICE_ADMIN' && !factoryId) {
+    const effectiveFactoryId =
+      role === 'HEAD_OFFICE_ADMIN'
+        ? null
+        : factoryId ||
+          currentUser?.factory?.id ||
+          currentUser?.factoryId ||
+          factoriesQuery.data?.[0]?.id ||
+          null;
+
+    if (role !== 'HEAD_OFFICE_ADMIN' && !effectiveFactoryId) {
       setErrorMsg('Please select a factory assignment for factory personnel.');
       return;
     }
@@ -1337,7 +1381,7 @@ function CreateUserModal({ onClose }) {
       password,
       role,
       permissions: isAdmin ? permissions : permissions.filter((p) => p !== 'admin:manage'),
-      factoryId: role === 'HEAD_OFFICE_ADMIN' ? null : factoryId,
+      factoryId: effectiveFactoryId,
     });
   };
 
@@ -1354,54 +1398,63 @@ function CreateUserModal({ onClose }) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.45)',
+        background: 'rgba(0,0,0,0.5)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 9999,
         padding: '16px',
       }}
-      onClick={onClose}
     >
       <div
         style={{
           background: '#fff',
-          borderRadius: '8px',
-          padding: '24px',
+          borderRadius: '10px',
           width: '740px',
           maxWidth: '95%',
           maxHeight: '90vh',
-          overflowY: 'auto',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Off-white Title Header */}
         <div
           style={{
+            background: '#f8faf9',
+            borderBottom: '1px solid #e5e7eb',
+            padding: '16px 24px',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '14px',
           }}
         >
-          <h3
-            style={{
-              margin: 0,
-              fontSize: '18px',
-              color: '#1a2e22',
-            }}
-          >
-            {isAdmin
-              ? 'Create ERP User'
-              : `Add Factory User · ${currentUser?.factory?.name || 'Branch'}`}
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', minHeight: '32px' }}>
+            <h3
+              style={{
+                margin: 0,
+                fontSize: '18px',
+                fontWeight: 700,
+                color: '#1a2e22',
+                letterSpacing: '-0.2px',
+                textAlign: 'left',
+                lineHeight: 1.3,
+              }}
+            >
+              {isAdmin
+                ? 'Create ERP User'
+                : `Add Factory User · ${currentUser?.factory?.name || 'Branch'}`}
+            </h3>
+          </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
             style={{
-              background: 'none',
-              border: 'none',
+              background: '#ffffff',
+              border: '1px solid #e5e7eb',
               cursor: 'pointer',
               padding: '6px',
               borderRadius: '6px',
@@ -1416,7 +1469,7 @@ function CreateUserModal({ onClose }) {
               e.currentTarget.style.color = '#111827';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.backgroundColor = '#ffffff';
               e.currentTarget.style.color = '#6b7280';
             }}
             title="Cancel / Close (Esc)"
@@ -1424,154 +1477,164 @@ function CreateUserModal({ onClose }) {
             <X size={18} />
           </button>
         </div>
-        {errorMsg && <Notice kind="error">{errorMsg}</Notice>}
 
-        <form onSubmit={handleSubmit}>
-          <FormRow label="Full Name" required>
-            <input
-              type="text"
-              className="p2-input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Tariqul Islam"
-              required
-            />
-          </FormRow>
+        {/* Scrollable Modal Content */}
+        <div
+          style={{
+            padding: '24px',
+            overflowY: 'auto',
+          }}
+        >
+          {errorMsg && <Notice kind="error">{errorMsg}</Notice>}
 
-          <FormRow label="Email Address" required>
-            <input
-              type="email"
-              className="p2-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="e.g. tariqul@juteworks.demo"
-              required
-            />
-          </FormRow>
+          <form onSubmit={handleSubmit}>
+            <FormRow label="Full Name" required>
+              <input
+                type="text"
+                className="p2-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Tariqul Islam"
+                required
+              />
+            </FormRow>
 
-          <FormRow label="Password" required hint="Default password is password123">
-            <input
-              type="text"
-              className="p2-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </FormRow>
+            <FormRow label="Email Address" required>
+              <input
+                type="email"
+                className="p2-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="e.g. tariqul@juteworks.demo"
+                required
+              />
+            </FormRow>
 
-          {/* Assigned Mill Factory placed on TOP of System Role */}
-          <FormRow
-            label="Assigned Mill Factory"
-            required={role !== 'HEAD_OFFICE_ADMIN'}
-            hint={role === 'HEAD_OFFICE_ADMIN' ? 'Consolidated across all mills (HQ)' : undefined}
-          >
-            {isAdmin ? (
+            <FormRow label="Password" required>
+              <input
+                type="text"
+                className="p2-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter user password"
+                required
+              />
+            </FormRow>
+
+            {/* Assigned Mill Factory placed on TOP of System Role */}
+            <FormRow
+              label="Assigned Mill Factory"
+              required={role !== 'HEAD_OFFICE_ADMIN'}
+              hint={role === 'HEAD_OFFICE_ADMIN' ? 'Consolidated across all mills (HQ)' : undefined}
+            >
+              {isAdmin ? (
+                <select
+                  className="p2-select"
+                  value={factoryId}
+                  onChange={(e) => setFactoryId(e.target.value)}
+                  disabled={role === 'HEAD_OFFICE_ADMIN'}
+                  required={role !== 'HEAD_OFFICE_ADMIN'}
+                >
+                  <option value="">Select factory…</option>
+                  {factoriesQuery.data?.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.code} · {f.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div
+                  className="p2-input"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: '#f9fafb',
+                    color: '#374151',
+                    fontWeight: 600,
+                  }}
+                >
+                  <Building2 size={15} style={{ marginRight: '8px', color: '#059669' }} />
+                  <span>
+                    {currentUser?.factory?.name || 'Assigned Factory'} (
+                    {currentUser?.factory?.code || 'Branch'})
+                  </span>
+                </div>
+              )}
+            </FormRow>
+
+            {/* System Role placed below Assigned Mill Factory */}
+            <FormRow label="System Role" required>
               <select
                 className="p2-select"
-                value={factoryId}
-                onChange={(e) => setFactoryId(e.target.value)}
-                disabled={role === 'HEAD_OFFICE_ADMIN'}
-                required={role !== 'HEAD_OFFICE_ADMIN'}
+                value={role}
+                onChange={(e) => handleRoleChange(e.target.value)}
+                required
               >
-                <option value="">Select factory…</option>
-                {factoriesQuery.data?.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.code} · {f.name}
-                  </option>
-                ))}
+                <option value="">Select a role…</option>
+                <option value="STAFF">Staff (Basic Operations & Godown)</option>
+                <option value="ACCOUNTANT">Accountant (Invoices & Billing)</option>
+                {isAdmin && (
+                  <>
+                    <option value="FACTORY_MANAGER">
+                      Factory Admin (Full Branch Control)
+                    </option>
+                    <option value="HEAD_OFFICE_ADMIN">
+                      Head Office Admin (Consolidated Control)
+                    </option>
+                  </>
+                )}
               </select>
+            </FormRow>
+
+            {/* Accessibility & Permissions Configuration only shown when a role is selected */}
+            {role ? (
+              <PermissionsSelector
+                role={role}
+                permissions={permissions}
+                onChange={setPermissions}
+                isAdmin={isAdmin}
+              />
             ) : (
               <div
-                className="p2-input"
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  background: '#f9fafb',
-                  color: '#374151',
-                  fontWeight: 600,
+                  padding: '16px',
+                  borderRadius: '8px',
+                  background: '#f8fafc',
+                  border: '1px dashed #cbd5e1',
+                  textAlign: 'center',
+                  color: '#64748b',
+                  fontSize: '13px',
+                  margin: '18px 0',
                 }}
               >
-                <Building2 size={15} style={{ marginRight: '8px', color: '#059669' }} />
-                <span>
-                  {currentUser?.factory?.name || 'Assigned Factory'} (
-                  {currentUser?.factory?.code || 'Branch'})
-                </span>
+                Please select a <strong>System Role</strong> above to configure module accessibility &
+                permissions.
               </div>
             )}
-          </FormRow>
 
-          {/* System Role placed below Assigned Mill Factory */}
-          <FormRow label="System Role" required>
-            <select
-              className="p2-select"
-              value={role}
-              onChange={(e) => handleRoleChange(e.target.value)}
-              required
-            >
-              <option value="">Select a role…</option>
-              <option value="STAFF">Staff (Basic Operations & Godown)</option>
-              <option value="ACCOUNTANT">Accountant (Invoices & Billing)</option>
-              {isAdmin && (
-                <>
-                  <option value="FACTORY_MANAGER">
-                    Factory Admin (Full Branch Control)
-                  </option>
-                  <option value="HEAD_OFFICE_ADMIN">
-                    Head Office Admin (Consolidated Control)
-                  </option>
-                </>
-              )}
-            </select>
-          </FormRow>
-
-          {/* Accessibility & Permissions Configuration only shown when a role is selected */}
-          {role ? (
-            <PermissionsSelector
-              role={role}
-              permissions={permissions}
-              onChange={setPermissions}
-              isAdmin={isAdmin}
-            />
-          ) : (
             <div
               style={{
-                padding: '16px',
-                borderRadius: '8px',
-                background: '#f8fafc',
-                border: '1px dashed #cbd5e1',
-                textAlign: 'center',
-                color: '#64748b',
-                fontSize: '13px',
-                margin: '18px 0',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '8px',
+                marginTop: '22px',
+                borderTop: '1px solid #e5e7eb',
+                paddingTop: '16px',
               }}
             >
-              Please select a <strong>System Role</strong> above to configure module accessibility &
-              permissions.
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="bg-emerald-800 hover:bg-emerald-900 text-white"
+                disabled={createMut.isPending}
+              >
+                {createMut.isPending ? 'Creating…' : 'Create User'}
+              </Button>
             </div>
-          )}
-
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '8px',
-              marginTop: '22px',
-              borderTop: '1px solid #e5e7eb',
-              paddingTop: '16px',
-            }}
-          >
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="bg-emerald-800 hover:bg-emerald-900 text-white"
-              disabled={createMut.isPending}
-            >
-              {createMut.isPending ? 'Creating…' : 'Create User'}
-            </Button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -2012,7 +2075,7 @@ function formatDetails(details) {
         .map(([k, v]) => `${k}: ${v}`)
         .join(' · ');
     }
-  } catch {}
+  } catch { }
   return String(details);
 }
 function AuditLogsView() {

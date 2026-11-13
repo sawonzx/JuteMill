@@ -87,6 +87,9 @@ export function createPaymentsRouter(prisma, dbManager) {
       };
 
       const clients = await getQueryClients(prisma, dbManager, requestedFactoryId);
+      const sortBy = req.query.sortBy;
+      const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : req.query.sortOrder === 'desc' ? 'desc' : undefined;
+      const orderBy = sortBy === 'amount' && sortOrder ? { amount: sortOrder } : { paidAt: 'desc' };
 
       if (clients.length <= 1) {
         const db = clients[0];
@@ -95,7 +98,7 @@ export function createPaymentsRouter(prisma, dbManager) {
           db.payment.findMany({
             where,
             include,
-            orderBy: { paidAt: 'desc' },
+            orderBy,
             skip: (page - 1) * pageSize,
             take: pageSize,
           }),
@@ -115,18 +118,27 @@ export function createPaymentsRouter(prisma, dbManager) {
           const items = await db.payment.findMany({
             where,
             include,
-            orderBy: { paidAt: 'desc' },
+            orderBy,
           });
           return items.map(formatPaymentListItem);
         })
       );
+
+      const comparator =
+        sortBy === 'amount' && sortOrder
+          ? (a, b) => {
+              const valA = Number(a.amount || 0);
+              const valB = Number(b.amount || 0);
+              return sortOrder === 'asc' ? valA - valB : valB - valA;
+            }
+          : (a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime();
 
       res.json(
         mergePaginatedLists(
           lists,
           page,
           pageSize,
-          (a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
+          comparator
         )
       );
     } catch (err) {

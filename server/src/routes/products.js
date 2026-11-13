@@ -38,6 +38,12 @@ export function createProductsRouter(prisma, dbManager) {
       const type = req.query.type;
       const status = req.query.status;
       const requestedFactoryId = req.query.factoryId;
+      const sortBy = req.query.sortBy;
+      const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : req.query.sortOrder === 'desc' ? 'desc' : undefined;
+      const isPriceSort = (sortBy === 'standardPrice' || sortBy === 'price') && sortOrder;
+      const productOrderBy = isPriceSort
+        ? [{ standardPrice: sortOrder }, { name: 'asc' }]
+        : [{ type: 'asc' }, { name: 'asc' }];
 
       const where = {
         ...(status && status !== 'ALL' ? { status } : {}),
@@ -78,7 +84,7 @@ export function createProductsRouter(prisma, dbManager) {
                 include: { factory: { select: { id: true, code: true, name: true } } },
               },
             },
-            orderBy: [{ type: 'asc' }, { name: 'asc' }],
+            orderBy: productOrderBy,
             skip: (page - 1) * pageSize,
             take: pageSize,
           }),
@@ -141,7 +147,7 @@ export function createProductsRouter(prisma, dbManager) {
           catalogClients.map((db) =>
             db.product.findMany({
               where,
-              orderBy: [{ type: 'asc' }, { name: 'asc' }],
+              orderBy: productOrderBy,
             })
           )
         ),
@@ -179,6 +185,13 @@ export function createProductsRouter(prisma, dbManager) {
       }
 
       const allProducts = Array.from(productMap.values()).sort((a, b) => {
+        if (isPriceSort) {
+          const priceA = a.standardPrice != null ? Number(a.standardPrice) : 0;
+          const priceB = b.standardPrice != null ? Number(b.standardPrice) : 0;
+          if (priceA !== priceB) {
+            return sortOrder === 'asc' ? priceA - priceB : priceB - priceA;
+          }
+        }
         if (a.type !== b.type) return a.type.localeCompare(b.type);
         return a.name.localeCompare(b.name);
       });

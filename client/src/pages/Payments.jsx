@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Building2, Plus, Receipt, Search } from 'lucide-react';
+import { BookOpen, Building2, ChevronDown, ChevronUp, ChevronsUpDown, Plus, Receipt, Search } from 'lucide-react';
 import {
   getCustomerLedger,
   getCustomers,
@@ -30,7 +30,7 @@ const money = new Intl.NumberFormat('en-BD', {
 export default function PaymentsPage() {
   const [activeTab, setActiveTab] = useState('receipts');
   return (
-    <div className="p2-page">
+    <div className="p2-page finance-page">
       <PageTitle
         title="Payments & Customer Ledger"
         description="Cash collections, remittance entries, and chronological customer running balances."
@@ -62,7 +62,14 @@ function ReceiptsView() {
   const [q, setQ] = useState('');
   const [factoryId, setFactoryId] = useState('');
   const [page, setPage] = useState(1);
+  const [sortOrder, setSortOrder] = useState(''); // '' | 'desc' | 'asc'
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleToggleAmountSort = () => {
+    setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
+    setPage(1);
+  };
+
   const factoriesQuery = useQuery({
     queryKey: ['factories'],
     queryFn: getFactories,
@@ -75,6 +82,8 @@ function ReceiptsView() {
         q,
         factoryId,
         page,
+        sortBy: sortOrder ? 'amount' : undefined,
+        sortOrder: sortOrder || undefined,
       },
     ],
     queryFn: () =>
@@ -84,6 +93,8 @@ function ReceiptsView() {
         factoryId: isAdmin ? factoryId : undefined,
         page,
         pageSize: 10,
+        sortBy: sortOrder ? 'amount' : undefined,
+        sortOrder: sortOrder || undefined,
       }),
   });
   return (
@@ -120,8 +131,14 @@ function ReceiptsView() {
         <div
           style={{
             marginLeft: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
           }}
         >
+          <span className="p2-toolbar-count">
+            {paymentsQuery.data?.total ?? paymentsQuery.data?.items?.length ?? 0} payments
+          </span>
           <Button
             className="bg-emerald-800 hover:bg-emerald-900 text-white"
             onClick={() => setIsModalOpen(true)}
@@ -141,10 +158,10 @@ function ReceiptsView() {
       ) : paymentsQuery.data?.items.length ? (
         <>
           <div className="p2-table-wrap">
-            <table className="p2-table">
+            <table className="p2-table payments-table">
               <thead>
                 <tr>
-                  <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
+                  <th>#</th>
                   <th>Receipt #</th>
                   <th>Customer</th>
                   <th>Invoice Ref</th>
@@ -152,13 +169,37 @@ function ReceiptsView() {
                   <th>Method</th>
                   <th>Reference</th>
                   <th>Date</th>
-                  <th className="p2-right">Amount (BDT)</th>
+                  <th className="amount-header" style={{ textAlign: 'left' }}>
+                    <button
+                      type="button"
+                      onClick={handleToggleAmountSort}
+                      className="p2-sort-header-btn"
+                      title={
+                        sortOrder === 'desc'
+                          ? 'Sorted: High to Low. Click to sort Low to High'
+                          : sortOrder === 'asc'
+                            ? 'Sorted: Low to High. Click to sort High to Low'
+                            : 'Click to sort Amount High to Low'
+                      }
+                    >
+                      <span>Amount (<span className="p2-taka-sign">৳</span>)</span>
+                      <span className={`p2-sort-icon-wrap ${sortOrder ? 'active' : ''}`}>
+                        {sortOrder === 'desc' ? (
+                          <ChevronDown size={14} />
+                        ) : sortOrder === 'asc' ? (
+                          <ChevronUp size={14} />
+                        ) : (
+                          <ChevronsUpDown size={14} />
+                        )}
+                      </span>
+                    </button>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {paymentsQuery.data.items.map((p, index) => (
                   <tr key={p.id}>
-                    <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                    <td>
                       {String((page - 1) * 10 + index + 1).padStart(2, '0')}
                     </td>
                     <td>
@@ -197,13 +238,13 @@ function ReceiptsView() {
                         'en-GB'
                       )}
                     </td>
-                    <td className="p2-right amount-cell">
+                    <td className="amount-cell">
                       <strong
                         style={{
                           color: '#207e4d',
                         }}
                       >
-                        +{money.format(p.amount)}
+                        +{Number(p.amount || 0).toLocaleString('en-BD')} /-
                       </strong>
                     </td>
                   </tr>
@@ -668,25 +709,31 @@ function CustomerLedgerView() {
 
             {filteredEntries.length ? (
               <div className="p2-table-wrap">
-                <table className="p2-table">
+                <table className="p2-table payments-table">
                   <thead>
                     <tr>
-                      <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
+                      <th>#</th>
                       <th>Date</th>
                       <th>Type</th>
                       <th>Reference / Doc</th>
                       <th>Customer</th>
                       {isAdmin && <th>Factory</th>}
                       <th>Description</th>
-                      <th className="p2-right">Debit (+)</th>
-                      <th className="p2-right">Credit (-)</th>
-                      <th className="p2-right">Running Balance</th>
+                      <th className="amount-header">
+                        Debit (<span className="p2-taka-sign">৳</span>)
+                      </th>
+                      <th className="amount-header">
+                        Credit (<span className="p2-taka-sign">৳</span>)
+                      </th>
+                      <th className="amount-header">
+                        Running Balance (<span className="p2-taka-sign">৳</span>)
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredEntries.map((entry, eIdx) => (
                       <tr key={entry.id}>
-                        <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                        <td>
                           {String(eIdx + 1).padStart(2, '0')}
                         </td>
                         <td>{new Date(entry.date).toLocaleDateString('en-GB')}</td>
@@ -721,24 +768,24 @@ function CustomerLedgerView() {
                           </td>
                         )}
                         <td>{entry.description}</td>
-                        <td className="p2-right amount-cell">
-                          {entry.debit > 0 ? money.format(entry.debit) : '—'}
+                        <td className="amount-cell">
+                          {entry.debit > 0 ? `${Number(entry.debit).toLocaleString('en-BD')} /-` : '—'}
                         </td>
                         <td
-                          className="p2-right amount-cell"
+                          className="amount-cell"
                           style={{
                             color: '#207e4d',
                           }}
                         >
-                          {entry.credit > 0 ? `-${money.format(entry.credit)}` : '—'}
+                          {entry.credit > 0 ? `-${Number(entry.credit).toLocaleString('en-BD')} /-` : '—'}
                         </td>
-                        <td className="p2-right amount-cell">
+                        <td className="amount-cell">
                           <strong
                             style={{
                               color: (entry.balance ?? 0) > 0 ? '#b2352c' : '#1e683f',
                             }}
                           >
-                            {money.format(entry.balance ?? 0)}
+                            {Number(entry.balance ?? 0).toLocaleString('en-BD')} /-
                           </strong>
                         </td>
                       </tr>

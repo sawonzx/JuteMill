@@ -103,6 +103,9 @@ export function createOrdersRouter(prisma, dbManager) {
       };
 
       const clients = await getQueryClients(prisma, dbManager, requestedFactoryId);
+      const sortBy = req.query.sortBy;
+      const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : req.query.sortOrder === 'desc' ? 'desc' : undefined;
+      const orderBy = sortBy === 'total' && sortOrder ? { total: sortOrder } : { orderDate: 'desc' };
 
       if (clients.length <= 1) {
         const db = clients[0];
@@ -111,7 +114,7 @@ export function createOrdersRouter(prisma, dbManager) {
           db.salesOrder.findMany({
             where,
             include,
-            orderBy: { orderDate: 'desc' },
+            orderBy,
             skip: (page - 1) * pageSize,
             take: pageSize,
           }),
@@ -131,18 +134,27 @@ export function createOrdersRouter(prisma, dbManager) {
           const items = await db.salesOrder.findMany({
             where,
             include,
-            orderBy: { orderDate: 'desc' },
+            orderBy,
           });
           return items.map(formatOrderListItem);
         })
       );
+
+      const comparator =
+        sortBy === 'total' && sortOrder
+          ? (a, b) => {
+              const valA = Number(a.total || 0);
+              const valB = Number(b.total || 0);
+              return sortOrder === 'asc' ? valA - valB : valB - valA;
+            }
+          : (a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime();
 
       res.json(
         mergePaginatedLists(
           lists,
           page,
           pageSize,
-          (a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime()
+          comparator
         )
       );
     } catch (err) {

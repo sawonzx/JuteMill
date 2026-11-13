@@ -733,8 +733,9 @@ function Sidebar({ user, onNavigate }) {
   };
 
   return (
-    <nav className="sidebar-nav">
-      <div className="nav-caption">WORKSPACE</div>
+    <>
+      <nav className="sidebar-nav">
+        <div className="nav-caption">WORKSPACE</div>
       {navItems
         .filter((item) => canAccess(item))
         .map(({ label, path, icon: Icon }) => (
@@ -792,7 +793,9 @@ function Sidebar({ user, onNavigate }) {
           <span>Trash Can</span>
         </NavLink>
       )}
+    </nav>
 
+    <div className="sidebar-bottom">
       <div className="scope-card">
         <div className="scope-top">
           <Building2 size={15} />
@@ -809,7 +812,8 @@ function Sidebar({ user, onNavigate }) {
             : (user?.factory?.location ?? 'Mill operations')}
         </small>
       </div>
-    </nav>
+    </div>
+    </>
   );
 }
 function Dashboard({ query }) {

@@ -101,7 +101,7 @@ function CustomerListPage() {
     setStatusModalCustomer(customer);
   };
   return (
-    <div className="p2-page">
+    <div className="p2-page customers-page">
       <PageTitle
         title="Customers"
         description="Factory scoped customer records and order history."
@@ -161,6 +161,13 @@ function CustomerListPage() {
               ))}
             </select>
           )}
+          {query.data?.total != null && (
+            <div className="p2-toolbar-right">
+              <span className="p2-toolbar-count">
+                {query.data.total} {query.data.total === 1 ? 'customer' : 'customers'}
+              </span>
+            </div>
+          )}
         </div>
         {query.isLoading ? (
           <LoadingState label="Loading customers…" />
@@ -172,14 +179,14 @@ function CustomerListPage() {
               <table className="p2-table customer-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
+                    <th style={{ width: '96px', minWidth: '96px', textAlign: 'center' }}>#</th>
                     <th>Customer</th>
                     <th>Contact</th>
                     {isAdmin && <th>Factory</th>}
                     <th>Type</th>
                     <th>Status</th>
-                    <th className="p2-right">Created</th>
-                    <th className="p2-right" style={{ width: '60px', minWidth: '60px' }}>
+                    <th>Created</th>
+                    <th style={{ width: '96px', minWidth: '96px', textAlign: 'center' }}>
                       Action
                     </th>
                   </tr>
@@ -212,17 +219,17 @@ function CustomerListPage() {
                       <td>
                         <StatusLabel status={customer.status} />
                       </td>
-                      <td className="p2-right">
-                        {new Date(customer.createdAt).toLocaleDateString('en-GB')}
-                      </td>
-                      <td className="p2-actions">
-                        <Link
-                          aria-label={`View ${customer.name}`}
-                          title="View details"
-                          to={`/customers/${customer.id}`}
-                        >
-                          <InvertedInfoIcon size={18} />
-                        </Link>
+                      <td>{new Date(customer.createdAt).toLocaleDateString('en-GB')}</td>
+                      <td className="p2-actions-cell" style={{ textAlign: 'center' }}>
+                        <div className="p2-actions" style={{ justifyContent: 'center' }}>
+                          <Link
+                            aria-label={`View ${customer.name}`}
+                            title="View details"
+                            to={`/customers/${customer.id}`}
+                          >
+                            <InvertedInfoIcon size={20} />
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}

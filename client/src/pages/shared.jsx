@@ -7,6 +7,7 @@ import {
   ArrowRight,
   CheckCircle2,
   ChevronDown,
+  Eye,
   LoaderCircle,
   Search,
   X,
@@ -167,23 +168,21 @@ export function FormRow({ label, required, hint, children }) {
     </label>
   );
 }
-export function InvertedInfoIcon({ size = 18, className = '' }) {
+export function InvertedInfoIcon({ size = 20, className = '' }) {
+  const iconSize = Math.max(10, Math.round(size * 0.62));
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+    <span
       className={`p2-inverted-info ${className}`}
-      style={{ verticalAlign: 'middle', display: 'inline-block' }}
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+      }}
     >
-      <circle cx="12" cy="12" r="10" fill="#15803d" className="info-circle" />
-      <line x1="12" y1="16" x2="12" y2="12" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" />
-      <circle cx="12" cy="8" r="1.2" fill="#ffffff" />
-    </svg>
+      <Eye size={iconSize} color="#ffffff" strokeWidth={2.4} />
+    </span>
   );
 }
+export const ActionEyeIcon = InvertedInfoIcon;
 export function ConfirmModal({
   open,
   title,

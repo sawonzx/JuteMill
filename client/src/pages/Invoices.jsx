@@ -1,7 +1,21 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ban, Building2, CreditCard, FileText, Info, Pencil, Plus, Printer, Search, X } from 'lucide-react';
+import {
+  Ban,
+  Building2,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
+  CreditCard,
+  FileText,
+  Info,
+  Pencil,
+  Plus,
+  Printer,
+  Search,
+  X,
+} from 'lucide-react';
 import {
   createInvoice,
   getFactories,
@@ -55,7 +69,20 @@ function InvoiceListView() {
   const [status, setStatus] = useState('');
   const [factoryId, setFactoryId] = useState('');
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState('total'); // 'total' | 'balanceDue'
+  const [sortOrder, setSortOrder] = useState(''); // '' | 'desc' | 'asc'
   const [orderModalOpen, setOrderModalOpen] = useState(false);
+
+  const handleToggleSort = (field) => {
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortBy(field);
+      setSortOrder('desc');
+    }
+    setPage(1);
+  };
+
   const factoriesQuery = useQuery({
     queryKey: ['factories'],
     queryFn: getFactories,
@@ -69,6 +96,8 @@ function InvoiceListView() {
         status,
         factoryId,
         page,
+        sortBy: sortOrder ? sortBy : undefined,
+        sortOrder: sortOrder || undefined,
       },
     ],
     queryFn: () =>
@@ -79,10 +108,12 @@ function InvoiceListView() {
         factoryId: isAdmin ? factoryId : undefined,
         page,
         pageSize: 10,
+        sortBy: sortOrder ? sortBy : undefined,
+        sortOrder: sortOrder || undefined,
       }),
   });
   return (
-    <div className="p2-page">
+    <div className="p2-page invoices-page">
       <PageTitle
         title="Invoices"
         description="Accounts receivable billing, sales order invoices, and payment tracking."
@@ -143,6 +174,13 @@ function InvoiceListView() {
               ))}
             </select>
           )}
+          {invoicesQuery.data?.total != null && (
+            <div className="p2-toolbar-right">
+              <span className="p2-toolbar-count">
+                {invoicesQuery.data.total} {invoicesQuery.data.total === 1 ? 'invoice' : 'invoices'}
+              </span>
+            </div>
+          )}
         </div>
 
         {invoicesQuery.isLoading ? (
@@ -155,19 +193,67 @@ function InvoiceListView() {
         ) : invoicesQuery.data?.items.length ? (
           <>
             <div className="p2-table-wrap">
-              <table className="p2-table">
+              <table className="p2-table invoices-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
+                    <th style={{ width: '96px', minWidth: '96px', textAlign: 'center' }}>#</th>
                     <th>Invoice #</th>
                     <th>Customer</th>
                     {isAdmin && <th>Factory</th>}
                     <th>Status</th>
                     <th>Issue Date</th>
                     <th>Due Date</th>
-                    <th className="p2-right">Total</th>
-                    <th className="p2-right">Balance Due</th>
-                    <th className="p2-right" style={{ width: '60px', minWidth: '60px' }}>
+                    <th className="amount-header" style={{ textAlign: 'left' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSort('total')}
+                        className="p2-sort-header-btn"
+                        title={
+                          sortBy === 'total' && sortOrder === 'desc'
+                            ? 'Sorted: High to Low. Click to sort Low to High'
+                            : sortBy === 'total' && sortOrder === 'asc'
+                              ? 'Sorted: Low to High. Click to sort High to Low'
+                              : 'Click to sort Total High to Low'
+                        }
+                      >
+                        <span>Total (<span className="p2-taka-sign">৳</span>)</span>
+                        <span className={`p2-sort-icon-wrap ${sortBy === 'total' && sortOrder ? 'active' : ''}`}>
+                          {sortBy === 'total' && sortOrder === 'desc' ? (
+                            <ChevronDown size={14} />
+                          ) : sortBy === 'total' && sortOrder === 'asc' ? (
+                            <ChevronUp size={14} />
+                          ) : (
+                            <ChevronsUpDown size={14} />
+                          )}
+                        </span>
+                      </button>
+                    </th>
+                    <th className="balance-header" style={{ textAlign: 'left' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSort('balanceDue')}
+                        className="p2-sort-header-btn"
+                        title={
+                          sortBy === 'balanceDue' && sortOrder === 'desc'
+                            ? 'Sorted: High to Low. Click to sort Low to High'
+                            : sortBy === 'balanceDue' && sortOrder === 'asc'
+                              ? 'Sorted: Low to High. Click to sort High to Low'
+                              : 'Click to sort Balance Due High to Low'
+                        }
+                      >
+                        <span>Balance Due (<span className="p2-taka-sign">৳</span>)</span>
+                        <span className={`p2-sort-icon-wrap ${sortBy === 'balanceDue' && sortOrder ? 'active' : ''}`}>
+                          {sortBy === 'balanceDue' && sortOrder === 'desc' ? (
+                            <ChevronDown size={14} />
+                          ) : sortBy === 'balanceDue' && sortOrder === 'asc' ? (
+                            <ChevronUp size={14} />
+                          ) : (
+                            <ChevronsUpDown size={14} />
+                          )}
+                        </span>
+                      </button>
+                    </th>
+                    <th style={{ width: '96px', minWidth: '96px', textAlign: 'center' }}>
                       Action
                     </th>
                   </tr>
@@ -201,20 +287,24 @@ function InvoiceListView() {
                       </td>
                       <td>{new Date(inv.issueDate).toLocaleDateString('en-GB')}</td>
                       <td>{new Date(inv.dueDate).toLocaleDateString('en-GB')}</td>
-                      <td className="p2-right">{money.format(inv.total)}</td>
-                      <td className="p2-right amount-cell">
+                      <td className="amount-cell" style={{ textAlign: 'left' }}>
+                        <strong>{Number(inv.total || 0).toLocaleString('en-BD')} /-</strong>
+                      </td>
+                      <td className="balance-cell" style={{ textAlign: 'left' }}>
                         <strong
                           style={{
                             color: inv.balanceDue > 0 ? '#b83b32' : '#238b54',
                           }}
                         >
-                          {money.format(inv.balanceDue)}
+                          {Number(inv.balanceDue || 0).toLocaleString('en-BD')} /-
                         </strong>
                       </td>
-                      <td className="p2-actions">
-                        <Link to={`/invoices/${inv.id}`} title="View Invoice Details">
-                          <InvertedInfoIcon size={18} />
-                        </Link>
+                      <td className="p2-actions-cell" style={{ textAlign: 'center' }}>
+                        <div className="p2-actions" style={{ justifyContent: 'center' }}>
+                          <Link to={`/invoices/${inv.id}`} title="View Invoice Details">
+                            <InvertedInfoIcon size={20} />
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -5,6 +5,9 @@ import {
   ArrowDownToLine,
   ArrowLeftRight,
   ArrowUpFromLine,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
   Info,
   Package,
   Pencil,
@@ -77,6 +80,13 @@ function ProductListPage() {
   const [type, setType] = useState('');
   const [status, setStatus] = useState('ACTIVE');
   const [page, setPage] = useState(1);
+  const [sortOrder, setSortOrder] = useState(''); // '' | 'desc' | 'asc'
+
+  const handleTogglePriceSort = () => {
+    setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
+    setPage(1);
+  };
+
   const query = useQuery({
     queryKey: [
       ...productsKey,
@@ -86,6 +96,8 @@ function ProductListPage() {
         type,
         status,
         page,
+        sortBy: sortOrder ? 'standardPrice' : undefined,
+        sortOrder: sortOrder || undefined,
       },
     ],
     queryFn: () =>
@@ -96,10 +108,12 @@ function ProductListPage() {
         status,
         page,
         pageSize: 12,
+        sortBy: sortOrder ? 'standardPrice' : undefined,
+        sortOrder: sortOrder || undefined,
       }),
   });
   return (
-    <div className="p2-page">
+    <div className="p2-page products-page">
       <PageTitle
         title="Products"
         description="One catalog shared by both factories, with stock kept factory specific."
@@ -163,6 +177,11 @@ function ProductListPage() {
               <option value="ALL">All statuses</option>
             </select>
           )}
+          <div className="p2-toolbar-right">
+            <span className="p2-toolbar-count">
+              {query.data?.total ?? query.data?.items?.length ?? 0} products
+            </span>
+          </div>
         </div>
         {query.isLoading ? (
           <LoadingState label="Loading product catalog…" />
@@ -171,25 +190,47 @@ function ProductListPage() {
         ) : query.data?.items.length ? (
           <>
             <div className="p2-table-wrap">
-              <table className="p2-table">
+              <table className="p2-table product-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
+                    <th>#</th>
                     <th>Product</th>
                     <th>Category</th>
                     <th>Type</th>
                     <th>{isAdmin ? 'Factory stock' : 'On hand'}</th>
-                    <th>Default selling price</th>
-                    <th>Status</th>
-                    <th className="p2-right" style={{ width: '80px', minWidth: '80px' }}>
-                      Action
+                    <th className="amount-header" style={{ textAlign: 'left' }}>
+                      <button
+                        type="button"
+                        onClick={handleTogglePriceSort}
+                        className="p2-sort-header-btn"
+                        title={
+                          sortOrder === 'desc'
+                            ? 'Sorted: High to Low. Click to sort Low to High'
+                            : sortOrder === 'asc'
+                              ? 'Sorted: Low to High. Click to sort High to Low'
+                              : 'Click to sort Selling Price High to Low'
+                        }
+                      >
+                        <span>Selling Price (<span className="p2-taka-sign">৳</span>)</span>
+                        <span className={`p2-sort-icon-wrap ${sortOrder ? 'active' : ''}`}>
+                          {sortOrder === 'desc' ? (
+                            <ChevronDown size={14} />
+                          ) : sortOrder === 'asc' ? (
+                            <ChevronUp size={14} />
+                          ) : (
+                            <ChevronsUpDown size={14} />
+                          )}
+                        </span>
+                      </button>
                     </th>
+                    <th>Status</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {query.data.items.map((product, index) => (
                     <tr key={product.id}>
-                      <td style={{ textAlign: 'center', color: '#6b7280', fontWeight: 600, fontSize: '12px' }}>
+                      <td>
                         {String((page - 1) * 10 + index + 1).padStart(2, '0')}
                       </td>
                       <td>
@@ -231,20 +272,28 @@ function ProductListPage() {
                           )}
                         </div>
                       </td>
-                      <td>
-                        {product.standardPrice == null ? '—' : price.format(product.standardPrice)}
+                      <td className="amount-cell">
+                        {product.standardPrice == null ? (
+                          '—'
+                        ) : (
+                          <strong>
+                            {Number(product.standardPrice).toLocaleString('en-BD')} /-
+                          </strong>
+                        )}
                       </td>
                       <td>
                         <StatusLabel status={product.status} />
                       </td>
-                      <td className="p2-actions">
-                        <Link
-                          title="View product"
-                          aria-label={`View ${product.name}`}
-                          to={`/products/${product.id}`}
-                        >
-                          <InvertedInfoIcon size={18} />
-                        </Link>
+                      <td className="p2-actions-cell">
+                        <div className="p2-actions">
+                          <Link
+                            title="View product"
+                            aria-label={`View ${product.name}`}
+                            to={`/products/${product.id}`}
+                          >
+                            <InvertedInfoIcon size={20} />
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}

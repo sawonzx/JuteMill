@@ -5,6 +5,9 @@ import {
   ArrowRight,
   Building2,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
   FileCheck,
   FileText,
   Package,
@@ -69,6 +72,13 @@ function OrderListView() {
   const [status, setStatus] = useState('');
   const [factoryId, setFactoryId] = useState('');
   const [page, setPage] = useState(1);
+  const [sortOrder, setSortOrder] = useState(''); // '' | 'desc' | 'asc'
+
+  const handleToggleTotalSort = () => {
+    setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'));
+    setPage(1);
+  };
+
   const factoriesQuery = useQuery({
     queryKey: ['factories'],
     queryFn: getFactories,
@@ -82,6 +92,8 @@ function OrderListView() {
         status,
         factoryId,
         page,
+        sortBy: sortOrder ? 'total' : undefined,
+        sortOrder: sortOrder || undefined,
       },
     ],
     queryFn: () =>
@@ -92,10 +104,12 @@ function OrderListView() {
         factoryId: isAdmin ? factoryId : undefined,
         page,
         pageSize: 10,
+        sortBy: sortOrder ? 'total' : undefined,
+        sortOrder: sortOrder || undefined,
       }),
   });
   return (
-    <div className="p2-page">
+    <div className="p2-page sales-orders-page">
       <PageTitle
         title="Sales Orders"
         description="Customer purchase commitments, fulfillment workflows, and order-to-cash lifecycle."
@@ -170,20 +184,44 @@ function OrderListView() {
         ) : ordersQuery.data?.items.length ? (
           <>
             <div className="p2-table-wrap">
-              <table className="p2-table">
+              <table className="p2-table sales-order-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '48px', minWidth: '48px', textAlign: 'center' }}>#</th>
-                    <th>Order #</th>
+                    <th style={{ width: '96px', minWidth: '96px', textAlign: 'center' }}>#</th>
+                    <th>Order</th>
                     <th>Customer</th>
                     {isAdmin && <th>Factory</th>}
                     <th>Status</th>
                     <th>Due Date</th>
-                    <th className="p2-right">Items</th>
-                    <th className="p2-right">Total</th>
-                    <th className="p2-right" style={{ width: '60px', minWidth: '60px' }}>
-                      Action
-                    </th>
+                    <th>Items</th>
+                      <th className="amount-header" style={{ textAlign: 'left' }}>
+                        <button
+                          type="button"
+                          onClick={handleToggleTotalSort}
+                          className="p2-sort-header-btn"
+                          title={
+                            sortOrder === 'desc'
+                              ? 'Sorted: High to Low. Click to sort Low to High'
+                              : sortOrder === 'asc'
+                                ? 'Sorted: Low to High. Click to sort High to Low'
+                                : 'Click to sort High to Low'
+                          }
+                        >
+                          <span>Total (<span className="p2-taka-sign">৳</span>)</span>
+                          <span className={`p2-sort-icon-wrap ${sortOrder ? 'active' : ''}`}>
+                            {sortOrder === 'asc' ? (
+                              <ChevronUp size={14} />
+                            ) : sortOrder === 'desc' ? (
+                              <ChevronDown size={14} />
+                            ) : (
+                              <ChevronsUpDown size={14} />
+                            )}
+                          </span>
+                        </button>
+                      </th>
+                      <th style={{ width: '96px', minWidth: '96px', textAlign: 'center' }}>
+                        Action
+                      </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -214,14 +252,16 @@ function OrderListView() {
                         <StatusChip status={order.status} />
                       </td>
                       <td>{new Date(order.dueDate).toLocaleDateString('en-GB')}</td>
-                      <td className="p2-right">{order.lineCount ?? 0} lines</td>
-                      <td className="p2-right amount-cell">
-                        <strong>{money.format(order.total)}</strong>
+                      <td>{order.lineCount ?? 0} lines</td>
+                      <td className="amount-cell" style={{ textAlign: 'left' }}>
+                        <strong>{Number(order.total || 0).toLocaleString('en-BD')} /-</strong>
                       </td>
-                      <td className="p2-actions">
-                        <Link to={`/sales/${order.id}`} title="View Order Details">
-                          <InvertedInfoIcon size={18} />
-                        </Link>
+                      <td className="p2-actions-cell" >
+                        <div className="p2-actions" >
+                          <Link to={`/sales/${order.id}`} title="View Order Details">
+                            <InvertedInfoIcon size={20} />
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -245,7 +285,7 @@ function OrderListView() {
           />
         )}
       </section>
-    </div>
+    </div >
   );
 }
 function OrderDetailView({ id }) {

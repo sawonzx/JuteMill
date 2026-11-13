@@ -93,6 +93,7 @@ a {
 .sidebar-nav {
   padding: 23px 12px 14px;
   flex: 1;
+  overflow-y: auto;
 }
 .nav-caption {
   padding: 0 11px 9px;
@@ -180,8 +181,13 @@ a {
   margin-top: 3px;
 }
 .sidebar-bottom {
-  padding: 12px 15px 16px;
+  margin-top: auto;
+  padding: 12px;
   border-top: 1px solid #edf0ed;
+  background: #ffffff;
+}
+.sidebar-bottom .scope-card {
+  margin: 0;
 }
 .help-row {
   display: flex;

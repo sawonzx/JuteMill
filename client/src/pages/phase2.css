@@ -161,11 +161,23 @@
 .p2-right {
   text-align: right !important;
 }
+.p2-actions-cell {
+  text-align: right !important;
+  vertical-align: middle !important;
+  white-space: nowrap;
+}
+td.p2-actions {
+  display: table-cell !important;
+  text-align: right !important;
+  vertical-align: middle !important;
+  white-space: nowrap;
+}
 .p2-actions {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
+  vertical-align: middle;
 }
 .p2-actions a,
 .p2-actions button {
@@ -185,14 +197,19 @@
   color: #3c7958;
 }
 .p2-inverted-info {
-  transition: transform 0.15s ease, filter 0.15s ease;
-}
-.p2-actions a:hover .p2-inverted-info .info-circle,
-.p2-inverted-info:hover .info-circle {
-  fill: #166534;
+  border-radius: 50%;
+  background-color: #15803d;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+  line-height: 1;
 }
 .p2-actions a:hover .p2-inverted-info,
+.p2-actions button:hover .p2-inverted-info,
 .p2-inverted-info:hover {
+  background-color: #166534;
   transform: scale(1.1);
 }
 .p2-factory {

@@ -1,6 +1,7 @@
 .p2-threshold-cell {
   min-width: 155px;
 }
+
 .p2-inline-error {
   display: block;
   margin-top: 4px;
@@ -8,6 +9,7 @@
   font-size: 11.5px;
   white-space: normal;
 }
+
 @media (max-width: 720px) {
   .p2-threshold-cell {
     min-width: 145px;
@@ -25,60 +27,73 @@
   letter-spacing: 0.2px;
   text-transform: capitalize;
 }
+
 .p2-badge i {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   display: inline-block;
 }
+
 .p2-badge.draft {
   background: #f1f3f1;
   color: #5c6860;
 }
+
 .p2-badge.draft i {
   background: #8e9a91;
 }
+
 .p2-badge.confirmed {
   background: #eef5fc;
   color: #1e5a8a;
 }
+
 .p2-badge.confirmed i {
   background: #2b7bc4;
 }
+
 .p2-badge.in_production,
 .p2-badge.in_progress {
   background: #fdf8ea;
   color: #8c6312;
 }
+
 .p2-badge.in_production i,
 .p2-badge.in_progress i {
   background: #d4971c;
 }
+
 .p2-badge.fulfilled,
 .p2-badge.completed,
 .p2-badge.paid {
   background: #eaf6ef;
   color: #19633c;
 }
+
 .p2-badge.fulfilled i,
 .p2-badge.completed i,
 .p2-badge.paid i {
   background: #238b54;
 }
+
 .p2-badge.cancelled,
 .p2-badge.void {
   background: #faeceb;
   color: #932c25;
 }
+
 .p2-badge.cancelled i,
 .p2-badge.void i {
   background: #c84339;
 }
+
 .p2-badge.issued,
 .p2-badge.part_paid {
   background: #fdf5e8;
   color: #92580b;
 }
+
 .p2-badge.issued i,
 .p2-badge.part_paid i {
   background: #e08b1a;
@@ -90,6 +105,7 @@
   margin: 12px 0;
   font-size: 13.5px;
 }
+
 .p2-line-table th {
   text-align: left;
   padding: 8px 10px;
@@ -98,6 +114,7 @@
   color: #57655d;
   font-size: 12px;
 }
+
 .p2-line-table td {
   padding: 8px 10px;
   border-bottom: 1px solid #edf0ed;
@@ -109,6 +126,7 @@
   gap: 14px;
   margin-bottom: 18px;
 }
+
 .p2-card {
   background: #fff;
   border: 1px solid #e7ede8;
@@ -116,18 +134,21 @@
   padding: 14px 18px;
   box-shadow: 0 1px 4px #0000000a;
 }
+
 .p2-card span {
   font-size: 12px;
   color: #79867e;
   display: block;
   margin-bottom: 4px;
 }
+
 .p2-card strong {
   font-size: 22px;
   font-family: Manrope, sans-serif;
   color: #1e2c23;
   display: block;
 }
+
 .p2-card small {
   font-size: 11.5px;
   color: #8c9891;
@@ -142,6 +163,7 @@
   padding: 0 16px;
   background: #fcfdfc;
 }
+
 .p2-tab-button {
   border: 0;
   background: transparent;
@@ -156,9 +178,11 @@
   gap: 8px;
   transition: all 0.15s;
 }
+
 .p2-tab-button:hover {
   color: #1b5b3a;
 }
+
 .p2-tab-button.active {
   color: #1b5b3a;
   border-bottom-color: #24754c;
@@ -173,6 +197,7 @@
   max-width: 820px;
   margin: 0 auto;
 }
+
 .invoice-print-header {
   display: flex;
   justify-content: space-between;
@@ -180,37 +205,44 @@
   padding-bottom: 20px;
   margin-bottom: 24px;
 }
+
 .invoice-print-brand h2 {
   margin: 0;
   font-size: 24px;
   color: #1f3527;
   font-family: Manrope, sans-serif;
 }
+
 .invoice-print-brand p {
   margin: 4px 0 0;
   color: #64736a;
   font-size: 13px;
 }
+
 .invoice-print-meta {
   text-align: right;
 }
+
 .invoice-print-meta h1 {
   margin: 0;
   font-size: 26px;
   color: #23583c;
   font-weight: 700;
 }
+
 .invoice-print-meta p {
   margin: 4px 0 0;
   font-size: 13px;
   color: #556259;
 }
+
 .invoice-print-parties {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 32px;
   margin-bottom: 28px;
 }
+
 .invoice-print-parties div h4 {
   margin: 0 0 6px;
   font-size: 12px;
@@ -218,16 +250,19 @@
   color: #7b8880;
   letter-spacing: 0.5px;
 }
+
 .invoice-print-parties div p {
   margin: 2px 0;
   font-size: 13.5px;
   color: #233128;
 }
+
 .invoice-table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 24px;
 }
+
 .invoice-table th {
   background: #f2f6f3;
   padding: 10px 12px;
@@ -236,16 +271,19 @@
   font-size: 12.5px;
   color: #35473c;
 }
+
 .invoice-table td {
   padding: 10px 12px;
   border-bottom: 1px solid #e7ede9;
   font-size: 13px;
 }
+
 .invoice-totals {
   margin-left: auto;
   width: 280px;
   margin-bottom: 28px;
 }
+
 .invoice-totals div {
   display: flex;
   justify-content: space-between;
@@ -253,6 +291,7 @@
   font-size: 13.5px;
   color: #4b5850;
 }
+
 .invoice-totals div.grand-total {
   border-top: 2px solid #23583c;
   font-weight: 700;
@@ -260,6 +299,7 @@
   color: #193323;
   padding-top: 10px;
 }
+
 .invoice-totals div.balance-due {
   color: #92261f;
   font-weight: 700;
@@ -269,10 +309,12 @@
   body * {
     visibility: hidden;
   }
+
   .printable-area,
   .printable-area * {
     visibility: visible;
   }
+
   .printable-area {
     position: absolute;
     left: 0;
@@ -283,6 +325,7 @@
     border: none !important;
     box-shadow: none !important;
   }
+
   .no-print {
     display: none !important;
   }
@@ -402,8 +445,602 @@ select.p2-input {
   color: #24352a !important;
   font-weight: 500;
 }
+
 select.p2-select option,
 select.p2-input option {
   font-size: 14px !important;
   padding: 6px 8px;
+}
+
+/* ==========================================================================
+   Sales Orders, Invoices, Customers, Finance, Inventory & Products Pages - Expansive Layout & Proportional Scaling
+   ========================================================================== */
+
+/* 1. Reduce side spacing by expanding container max-width */
+.page-content:has(.sales-orders-page),
+.page-content:has(.invoices-page),
+.page-content:has(.customers-page),
+.page-content:has(.finance-page),
+.page-content:has(.inventory-page),
+.page-content:has(.products-page) {
+  max-width: 1760px !important;
+  width: 100% !important;
+  padding: 24px 32px 36px !important;
+}
+
+@media (min-width: 1920px) {
+  .page-content:has(.sales-orders-page),
+  .page-content:has(.invoices-page),
+  .page-content:has(.customers-page),
+  .page-content:has(.finance-page),
+  .page-content:has(.inventory-page),
+  .page-content:has(.products-page) {
+    max-width: 96% !important;
+    padding: 24px 40px 40px !important;
+  }
+}
+
+/* 2. Scale up page header */
+.sales-orders-page .p2-title-row,
+.invoices-page .p2-title-row,
+.customers-page .p2-title-row,
+.finance-page .p2-title-row,
+.inventory-page .p2-title-row,
+.products-page .p2-title-row {
+  margin-bottom: 8px;
+}
+
+.sales-orders-page .p2-title-row h1,
+.invoices-page .p2-title-row h1,
+.customers-page .p2-title-row h1,
+.finance-page .p2-title-row h1,
+.inventory-page .p2-title-row h1,
+.products-page .p2-title-row h1 {
+  font-size: 28px !important;
+  letter-spacing: -0.65px;
+  color: #173827 !important;
+}
+
+.sales-orders-page .p2-title-row p,
+.invoices-page .p2-title-row p,
+.customers-page .p2-title-row p,
+.finance-page .p2-title-row p,
+.inventory-page .p2-title-row p,
+.products-page .p2-title-row p {
+  font-size: 14.5px !important;
+  color: #6d7871;
+}
+
+.sales-orders-page .p2-button,
+.invoices-page .p2-button,
+.customers-page .p2-button,
+.finance-page .p2-button,
+.inventory-page .p2-button,
+.products-page .p2-button {
+  height: 40px !important;
+  padding: 0 16px !important;
+  font-size: 13.5px !important;
+  border-radius: 6px !important;
+  gap: 7px;
+}
+
+/* 3. Panel, Toolbar, & Card Outlook (Clean Modern Enterprise Look) */
+.sales-orders-page .p2-panel,
+.invoices-page .p2-panel,
+.customers-page .p2-panel,
+.finance-page .p2-panel,
+.inventory-page .p2-panel,
+.products-page .p2-panel {
+  background: #ffffff !important;
+  border: 1px solid #e2e8e4 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+  overflow: hidden;
+}
+
+.sales-orders-page .p2-toolbar,
+.invoices-page .p2-toolbar,
+.customers-page .p2-toolbar,
+.finance-page .p2-toolbar,
+.inventory-page .p2-toolbar,
+.products-page .p2-toolbar {
+  background: #ffffff !important;
+  border-bottom: 1px solid #edf1ee !important;
+  padding: 16px 32px !important;
+  gap: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.sales-orders-page .p2-search,
+.invoices-page .p2-search,
+.customers-page .p2-search,
+.finance-page .p2-search,
+.inventory-page .p2-search,
+.products-page .p2-search {
+  height: 40px !important;
+  max-width: 440px !important;
+  padding: 0 14px !important;
+  border-radius: 6px !important;
+  background: #fbfdfc !important;
+  border: 1px solid #dce4df !important;
+  transition: all 0.15s ease;
+}
+
+.sales-orders-page .p2-search:focus-within,
+.invoices-page .p2-search:focus-within,
+.customers-page .p2-search:focus-within,
+.finance-page .p2-search:focus-within,
+.inventory-page .p2-search:focus-within,
+.products-page .p2-search:focus-within {
+  background: #ffffff !important;
+  border-color: #2e7d4f !important;
+  box-shadow: 0 0 0 3px rgba(46, 125, 79, 0.12) !important;
+}
+
+.sales-orders-page .p2-search svg,
+.invoices-page .p2-search svg,
+.customers-page .p2-search svg,
+.finance-page .p2-search svg,
+.inventory-page .p2-search svg,
+.products-page .p2-search svg {
+  color: #7b8c82 !important;
+}
+
+.sales-orders-page .p2-search input,
+.invoices-page .p2-search input,
+.customers-page .p2-search input,
+.finance-page .p2-search input,
+.inventory-page .p2-search input,
+.products-page .p2-search input {
+  font-size: 13.5px !important;
+  color: #1a2f22 !important;
+}
+
+.sales-orders-page .p2-search input::placeholder,
+.invoices-page .p2-search input::placeholder,
+.customers-page .p2-search input::placeholder,
+.finance-page .p2-search input::placeholder,
+.inventory-page .p2-search input::placeholder,
+.products-page .p2-search input::placeholder {
+  color: #93a199 !important;
+}
+
+.sales-orders-page .p2-select,
+.invoices-page .p2-select,
+.customers-page .p2-select,
+.finance-page .p2-select,
+.inventory-page .p2-select,
+.products-page .p2-select {
+  height: 40px !important;
+  font-size: 13.5px !important;
+  min-width: 160px !important;
+  padding: 0 30px 0 14px !important;
+  border-radius: 6px !important;
+  background: #ffffff !important;
+  border: 1px solid #dce4df !important;
+  color: #2e4034 !important;
+  transition: all 0.15s ease;
+}
+
+.sales-orders-page .p2-select:focus,
+.invoices-page .p2-select:focus,
+.customers-page .p2-select:focus,
+.finance-page .p2-select:focus,
+.inventory-page .p2-select:focus,
+.products-page .p2-select:focus {
+  border-color: #2e7d4f !important;
+  box-shadow: 0 0 0 3px rgba(46, 125, 79, 0.12) !important;
+}
+
+.sales-orders-page .p2-toolbar-right,
+.invoices-page .p2-toolbar-right,
+.customers-page .p2-toolbar-right,
+.finance-page .p2-toolbar-right,
+.inventory-page .p2-toolbar-right,
+.products-page .p2-toolbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.sales-orders-page .p2-toolbar-count,
+.invoices-page .p2-toolbar-count,
+.customers-page .p2-toolbar-count,
+.finance-page .p2-toolbar-count,
+.inventory-page .p2-toolbar-count,
+.products-page .p2-toolbar-count {
+  background: #f0f4f1;
+  color: #526358;
+  border: 1px solid #e1e9e3;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* 4. Refined Clean Table Header */
+.sales-orders-page .p2-table thead,
+.invoices-page .p2-table thead,
+.customers-page .p2-table thead,
+.finance-page .p2-table thead,
+.inventory-page .p2-table thead,
+.products-page .p2-table thead,
+.sales-order-table thead,
+.invoices-table thead,
+.customer-table thead,
+.payments-table thead,
+.inventory-table thead,
+.product-table thead {
+  background: #f8faf9 !important;
+}
+
+.sales-order-table th,
+.invoices-table th,
+.customer-table th,
+.payments-table th,
+.inventory-table th,
+.product-table th {
+  background: #f8faf9 !important;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px;
+  padding: 18px 18px !important;
+  color: #4b5850 !important;
+  border-top: 1px solid #edf1ee !important;
+  border-bottom: 1px solid #e2e8e4 !important;
+}
+
+/* Table Body Typography & Rows */
+.sales-order-table tbody tr,
+.invoices-table tbody tr,
+.customer-table tbody tr,
+.payments-table tbody tr,
+.inventory-table tbody tr,
+.product-table tbody tr {
+  transition: background-color 0.12s ease;
+}
+
+.sales-order-table tbody tr:nth-child(even),
+.invoices-table tbody tr:nth-child(even),
+.customer-table tbody tr:nth-child(even),
+.payments-table tbody tr:nth-child(even),
+.inventory-table tbody tr:nth-child(even),
+.product-table tbody tr:nth-child(even) {
+  background-color: #fcfdfc;
+}
+
+.sales-order-table tbody tr:nth-child(odd),
+.invoices-table tbody tr:nth-child(odd),
+.customer-table tbody tr:nth-child(odd),
+.payments-table tbody tr:nth-child(odd),
+.inventory-table tbody tr:nth-child(odd),
+.product-table tbody tr:nth-child(odd) {
+  background-color: #ffffff;
+}
+
+.sales-order-table tbody tr:hover,
+.invoices-table tbody tr:hover,
+.customer-table tbody tr:hover,
+.payments-table tbody tr:hover,
+.inventory-table tbody tr:hover,
+.product-table tbody tr:hover {
+  background-color: #f4f8f5 !important;
+}
+
+.sales-order-table td,
+.invoices-table td,
+.customer-table td,
+.payments-table td,
+.inventory-table td,
+.product-table td {
+  font-size: 14px !important;
+  padding: 15px 18px !important;
+  color: #38463c !important;
+  border-bottom: 1px solid #eff3f0 !important;
+}
+
+.sales-order-table tbody tr:last-child td,
+.invoices-table tbody tr:last-child td,
+.customer-table tbody tr:last-child td,
+.payments-table tbody tr:last-child td,
+.inventory-table tbody tr:last-child td,
+.product-table tbody tr:last-child td {
+  border-bottom: none !important;
+}
+
+/* First column (#): Equal spacing on left and right */
+.sales-order-table th:first-child,
+.invoices-table th:first-child,
+.customer-table th:first-child,
+.payments-table th:first-child,
+.inventory-table th:first-child,
+.product-table th:first-child {
+  width: 96px !important;
+  min-width: 96px !important;
+  padding-left: 32px !important;
+  padding-right: 32px !important;
+  text-align: center !important;
+}
+
+.sales-order-table td:first-child,
+.invoices-table td:first-child,
+.customer-table td:first-child,
+.payments-table td:first-child,
+.inventory-table td:first-child,
+.product-table td:first-child {
+  width: 96px !important;
+  min-width: 96px !important;
+  padding-left: 32px !important;
+  padding-right: 32px !important;
+  text-align: center !important;
+  color: #6b7e72 !important;
+  font-weight: 600 !important;
+}
+
+.sales-order-table th:last-child,
+.invoices-table th:last-child,
+.customer-table th:last-child,
+.product-table th:last-child {
+  width: 96px !important;
+  min-width: 96px !important;
+  padding-right: 45px !important;
+  padding-left: 20px !important;
+  text-align: center !important;
+}
+
+.sales-order-table td:last-child,
+.invoices-table td:last-child,
+.customer-table td:last-child,
+.product-table td:last-child {
+  width: 96px !important;
+  min-width: 96px !important;
+  padding-right: 45px !important;
+  padding-left: 20px !important;
+  text-align: center !important;
+}
+
+.sales-order-table .p2-actions-cell,
+.invoices-table .p2-actions-cell,
+.customer-table .p2-actions-cell,
+.product-table .p2-actions-cell {
+  text-align: center !important;
+}
+
+.sales-order-table .p2-actions,
+.invoices-table .p2-actions,
+.customer-table .p2-actions,
+.product-table .p2-actions {
+  display: inline-flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+
+.sales-order-table .p2-record-link,
+.invoices-table .p2-record-link,
+.customer-table .p2-record-link,
+.payments-table .p2-record-link,
+.inventory-table .p2-record-link,
+.product-table .p2-record-link {
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  color: #17422e !important;
+}
+
+.sales-order-table .p2-record-link:hover,
+.invoices-table .p2-record-link:hover,
+.customer-table .p2-record-link:hover,
+.payments-table .p2-record-link:hover,
+.inventory-table .p2-record-link:hover,
+.product-table .p2-record-link:hover {
+  color: #15803d !important;
+  text-decoration: underline;
+}
+
+.sales-order-table .p2-record-link small,
+.invoices-table .p2-record-link small,
+.customer-table .p2-record-link small,
+.payments-table .p2-record-link small,
+.inventory-table .p2-record-link small,
+.product-table .p2-record-link small {
+  font-size: 12px !important;
+  color: #7b8c82 !important;
+  margin-top: 3px;
+  text-decoration: none !important;
+}
+
+.sales-order-table strong,
+.invoices-table strong,
+.customer-table strong,
+.payments-table strong,
+.inventory-table strong,
+.product-table strong {
+  font-size: 14px;
+  color: #1a2f22;
+  font-weight: 650;
+}
+
+.sales-order-table .p2-subtext,
+.invoices-table .p2-subtext,
+.customer-table .p2-subtext,
+.payments-table .p2-subtext,
+.inventory-table .p2-subtext,
+.product-table .p2-subtext {
+  font-size: 12.5px !important;
+  color: #7b8b81 !important;
+}
+
+.sales-order-table .p2-order-status,
+.sales-order-table .p2-badge,
+.invoices-table .p2-badge,
+.customer-table .p2-badge,
+.payments-table .p2-badge,
+.inventory-table .p2-badge,
+.product-table .p2-badge {
+  font-size: 12.5px !important;
+  padding: 4px 10px !important;
+}
+
+/* Increased size for Type (Inventory & Product) and Status (Customers & Products) */
+.inventory-table .p2-type,
+.product-table .p2-type,
+.inventory-page .p2-type,
+.products-page .p2-type {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 5px 11px !important;
+  border-radius: 5px !important;
+  letter-spacing: 0.15px;
+}
+
+.inventory-table .p2-movement-type {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 5px 11px !important;
+  border-radius: 5px !important;
+  gap: 6px !important;
+}
+
+.customer-table .p2-status,
+.customers-page .p2-status,
+.product-table .p2-status,
+.products-page .p2-status {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 5px 11px !important;
+  border-radius: 5px !important;
+  gap: 7px !important;
+  letter-spacing: 0.15px;
+}
+
+.customer-table .p2-status i,
+.customers-page .p2-status i,
+.product-table .p2-status i,
+.products-page .p2-status i {
+  width: 7px !important;
+  height: 7px !important;
+}
+
+/* Sort button in table header */
+.p2-sort-header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px;
+  color: #4b5850 !important;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+.p2-sort-header-btn:hover {
+  color: #17422e !important;
+}
+
+.p2-taka-sign {
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  display: inline-block;
+  line-height: 1;
+  color: #17422e !important;
+  margin: 0 1px;
+  vertical-align: 1px;
+}
+
+.p2-sort-header-btn .p2-sort-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8c9890;
+  transition: color 0.15s ease;
+}
+
+.p2-sort-header-btn:hover .p2-sort-icon-wrap {
+  color: #17422e;
+}
+
+.p2-sort-header-btn .p2-sort-icon-wrap.active {
+  color: #15803d !important;
+}
+
+.sales-order-table th.amount-header,
+.sales-order-table th:has(.p2-sort-header-btn),
+.sales-order-table .amount-cell {
+  padding-left: 100px !important;
+  text-align: left !important;
+}
+
+.payments-table th.amount-header,
+.payments-table th:has(.p2-sort-header-btn),
+.payments-table .amount-cell,
+.product-table th.amount-header,
+.product-table th:has(.p2-sort-header-btn),
+.product-table .amount-cell {
+  padding-left: 80px !important;
+  text-align: left !important;
+}
+
+.invoices-table th.amount-header,
+.invoices-table th:has(.p2-sort-header-btn),
+.invoices-table .amount-cell {
+  padding-left: 48px !important;
+  text-align: left !important;
+}
+
+.invoices-table th.balance-header,
+.invoices-table th.balance-header:has(.p2-sort-header-btn),
+.invoices-table .balance-cell {
+  padding-left: 36px !important;
+  text-align: left !important;
+}
+
+.sales-order-table .amount-cell strong,
+.invoices-table .amount-cell strong,
+.invoices-table .balance-cell strong,
+.payments-table .amount-cell strong,
+.product-table .amount-cell strong {
+  font-size: 14.5px !important;
+  font-weight: 750 !important;
+  color: #1a2f22 !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+}
+
+/* Action button polish */
+.sales-order-table .p2-inverted-info,
+.invoices-table .p2-inverted-info,
+.customer-table .p2-inverted-info,
+.product-table .p2-inverted-info {
+  box-shadow: 0 2px 5px rgba(21, 128, 61, 0.22);
+}
+
+.sales-order-table .p2-actions a:hover .p2-inverted-info,
+.invoices-table .p2-actions a:hover .p2-inverted-info,
+.customer-table .p2-actions a:hover .p2-inverted-info,
+.product-table .p2-actions a:hover .p2-inverted-info {
+  box-shadow: 0 4px 10px rgba(21, 128, 61, 0.35);
+  transform: translateY(-1px) scale(1.08);
+}
+
+/* 5. Scale up pagination bar with matching card padding */
+.sales-orders-page .p2-pagination,
+.invoices-page .p2-pagination,
+.customers-page .p2-pagination,
+.finance-page .p2-pagination,
+.inventory-page .p2-pagination,
+.products-page .p2-pagination {
+  background: #ffffff !important;
+  border-top: 1px solid #edf1ee !important;
+  padding: 14px 32px !important;
+  font-size: 13.5px !important;
+  color: #5d6f64 !important;
 }
