@@ -9,6 +9,7 @@ import {
   ArrowUpRight,
   Boxes,
   Building2,
+  Calendar,
   ChevronDown,
   CircleHelp,
   ClipboardList,
@@ -22,6 +23,7 @@ import {
   Settings,
   ShoppingCart,
   Trash2,
+  TrendingUp,
   Users,
   Wallet,
   X,
@@ -29,7 +31,10 @@ import {
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
+  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -59,6 +64,14 @@ const compactMoney = new Intl.NumberFormat('en-BD', {
   notation: 'compact',
   maximumFractionDigits: 1,
 });
+const STATUS_BAR_COLORS = {
+  CONFIRMED: '#247351',
+  IN_PRODUCTION: '#629e80',
+  PROCESSING: '#629e80',
+  FULFILLED: '#1b543f',
+  CANCELLED: '#d97706',
+  DRAFT: '#94a3b8',
+};
 const navItems = [
   {
     label: 'Overview',
@@ -253,9 +266,20 @@ export default function App() {
   });
   const factories = factoriesQuery.data ?? [];
   const currentPath = useLocation().pathname;
+  const [chartPeriod, setChartPeriod] = useState('6month');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+
   const dashboardQuery = useQuery({
-    queryKey: ['dashboard', selectedId, activeFactoryId],
-    queryFn: () => getDashboard(selectedId, activeFactoryId || undefined),
+    queryKey: ['dashboard', selectedId, activeFactoryId, chartPeriod, customStartDate, customEndDate],
+    queryFn: () =>
+      getDashboard(
+        selectedId,
+        activeFactoryId || undefined,
+        chartPeriod,
+        customStartDate,
+        customEndDate
+      ),
     enabled: !!selectedId,
     refetchInterval: currentPath === '/' ? 4_000 : 15_000,
     staleTime: 0,
@@ -342,7 +366,7 @@ export default function App() {
           <div>
             <strong
               style={{
-                fontSize: '17px',
+                fontSize: '18px',
                 letterSpacing: '-0.01em',
                 lineHeight: 1.2,
               }}
@@ -358,7 +382,7 @@ export default function App() {
                 borderRadius: '12px',
                 background: nodeBranchInfo.bg,
                 border: `1px solid ${nodeBranchInfo.border}`,
-                fontSize: '11px',
+                fontSize: '11.5px',
                 fontWeight: '700',
                 color: nodeBranchInfo.badgeColor,
                 lineHeight: 1.2,
@@ -499,7 +523,20 @@ export default function App() {
 
         <div className="page-content">
           <Routes>
-            <Route path="/" element={<Dashboard query={dashboardQuery} />} />
+            <Route
+              path="/"
+              element={
+                <Dashboard
+                  query={dashboardQuery}
+                  chartPeriod={chartPeriod}
+                  setChartPeriod={setChartPeriod}
+                  customStartDate={customStartDate}
+                  setCustomStartDate={setCustomStartDate}
+                  customEndDate={customEndDate}
+                  setCustomEndDate={setCustomEndDate}
+                />
+              }
+            />
 
             {/* Customers - admin, manager, accountant, or anyone with customers permission */}
             <Route
@@ -746,7 +783,7 @@ function Sidebar({ user, onNavigate }) {
             to={path}
             className={({ isActive }) => `nav-item ${isActive ? 'nav-active' : ''}`}
           >
-            <Icon size={17} strokeWidth={1.8} />
+            <Icon size={18} strokeWidth={1.85} />
             <span>{label}</span>
           </NavLink>
         ))}
@@ -758,7 +795,7 @@ function Sidebar({ user, onNavigate }) {
           to="/reports"
           className={({ isActive }) => `nav-item ${isActive ? 'nav-active' : ''}`}
         >
-          <ClipboardList size={17} strokeWidth={1.8} />
+          <ClipboardList size={18} strokeWidth={1.85} />
           <span>Reports</span>
         </NavLink>
       )}
@@ -771,12 +808,12 @@ function Sidebar({ user, onNavigate }) {
         >
           {user?.role === 'HEAD_OFFICE_ADMIN' ? (
             <>
-              <Settings size={17} strokeWidth={1.8} />
+              <Settings size={18} strokeWidth={1.85} />
               <span>Administration</span>
             </>
           ) : (
             <>
-              <Users size={17} strokeWidth={1.8} />
+              <Users size={18} strokeWidth={1.85} />
               <span>User Management</span>
             </>
           )}
@@ -789,7 +826,7 @@ function Sidebar({ user, onNavigate }) {
           to="/trash"
           className={({ isActive }) => `nav-item ${isActive ? 'nav-active' : ''}`}
         >
-          <Trash2 size={17} strokeWidth={1.8} />
+          <Trash2 size={18} strokeWidth={1.85} />
           <span>Trash Can</span>
         </NavLink>
       )}
@@ -798,7 +835,7 @@ function Sidebar({ user, onNavigate }) {
     <div className="sidebar-bottom">
       <div className="scope-card">
         <div className="scope-top">
-          <Building2 size={15} />
+          <Building2 size={16} />
           <span>ACTIVE SCOPE</span>
         </div>
         <b>
@@ -816,7 +853,15 @@ function Sidebar({ user, onNavigate }) {
     </>
   );
 }
-function Dashboard({ query }) {
+function Dashboard({
+  query,
+  chartPeriod,
+  setChartPeriod,
+  customStartDate,
+  setCustomStartDate,
+  customEndDate,
+  setCustomEndDate,
+}) {
   const data = query.data;
   if (query.isLoading)
     return (
@@ -851,7 +896,7 @@ function Dashboard({ query }) {
     operations: true,
   };
   const trend = (data.cashTrend ?? data.monthlyTrend ?? []).map((point) => ({
-    label: point.month,
+    label: point.label || point.month,
     a: point.factoryA,
     b: point.factoryB,
   }));
@@ -859,11 +904,24 @@ function Dashboard({ query }) {
   const revenue = data.metrics.revenue ?? data.metrics.totalCollected ?? 0;
   const receivables = data.metrics.receivables ?? data.metrics.totalReceivables ?? 0;
   const orderCount = data.metrics.orderCount ?? data.metrics.activeOrders ?? 0;
-  const activeFactories = data.metrics.activeFactories ?? data.factories?.length ?? 2;
+  const thisMonthRevenue = data.metrics.thisMonthRevenue ?? 0;
+  const monthGrowthPct = data.metrics.monthGrowthPct;
   const productionBatches =
     data.metrics.productionBatches ?? data.metrics.activeProductionBatches ?? 0;
   const ordersByStatus = data.ordersByStatus ?? [];
   const factoryPerformance = data.factoryPerformance ?? [];
+  const pipelineChartData = useMemo(
+    () =>
+      ordersByStatus
+        .filter((s) => Number(s.value) > 0 || Number(s.count) > 0)
+        .map((s) => ({
+          name: pretty(s.status),
+          status: s.status,
+          value: Number(s.value || 0),
+          count: Number(s.count || 0),
+        })),
+    [ordersByStatus]
+  );
   const recentOrders = data.recentOrders ?? [];
   const lowStock = data.lowStock ?? [];
   const statCards = [
@@ -891,26 +949,27 @@ function Dashboard({ query }) {
       positive: true,
       foot: 'Total customer commitments',
     },
-    ...(headOffice
-      ? [
-          {
-            label: 'Active factories',
-            value: String(activeFactories).padStart(2, '0'),
-            icon: Building2,
-            delta: 'All operational',
-            positive: true,
-            foot: 'Dhaka & Khulna mills',
-          },
-        ]
-      : []),
+    {
+      label: "This month's revenue",
+      value: compactMoney.format(thisMonthRevenue),
+      icon: TrendingUp,
+      delta:
+        monthGrowthPct != null
+          ? `${monthGrowthPct >= 0 ? '+' : ''}${monthGrowthPct}%`
+          : 'Current month',
+      positive: monthGrowthPct == null || monthGrowthPct >= 0,
+      foot: 'Payments received this month',
+    },
   ]
     .filter(
-      (card) => permissions.finance || !['Cash received', 'Open receivables'].includes(card.label)
+      (card) =>
+        permissions.finance ||
+        !['Cash received', 'Open receivables', "This month's revenue"].includes(card.label)
     )
     .filter((card) => permissions.sales || card.label !== 'Sales orders')
     .filter((card) => permissions.operations || card.label !== 'Production batches');
   return (
-    <>
+    <div className="overview-page">
       <div className="page-heading">
         <div>
           <h1>
@@ -959,7 +1018,7 @@ function Dashboard({ query }) {
               : undefined
           }
         >
-          <div className="panel-header">
+          <div className="panel-header" style={{ flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
             <div>
               <h2>Financial overview</h2>
               <p>
@@ -968,7 +1027,61 @@ function Dashboard({ query }) {
                   : `Performance · ${data.user.factory?.name}`}
               </p>
             </div>
-            <span className="period-select">Last 7 months</span>
+            <div className="chart-controls-wrapper">
+              <div className="chart-period-tabs">
+                {[
+                  { id: 'today', label: 'Today' },
+                  { id: 'week', label: 'Week' },
+                  { id: '15days', label: '15 Days' },
+                  { id: 'month', label: 'Month' },
+                  { id: '6month', label: '6 Month' },
+                  { id: 'custom', label: 'Custom', hasIcon: true },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`chart-period-tab-btn ${chartPeriod === item.id ? 'active' : ''}`}
+                    onClick={() => {
+                      if (item.id === 'custom' && (!customStartDate || !customEndDate)) {
+                        const end = new Date();
+                        const start = new Date();
+                        start.setDate(start.getDate() - 30);
+                        setCustomStartDate(start.toISOString().split('T')[0]);
+                        setCustomEndDate(end.toISOString().split('T')[0]);
+                      }
+                      setChartPeriod(item.id);
+                    }}
+                  >
+                    {item.hasIcon && <Calendar size={13} style={{ marginRight: '4px' }} />}
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {chartPeriod === 'custom' && (
+                <div className="chart-custom-date-row">
+                  <div className="date-input-wrap">
+                    <span className="date-label">From:</span>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      className="p2-date-picker-input"
+                    />
+                  </div>
+                  <span className="date-sep">to</span>
+                  <div className="date-input-wrap">
+                    <span className="date-label">To:</span>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      className="p2-date-picker-input"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div className="chart-legend">
             <span>
@@ -1025,7 +1138,17 @@ function Dashboard({ query }) {
                   }}
                 />
                 <Tooltip
-                  formatter={(value) => [`৳${Number(value).toFixed(2)}m`, 'Cash received']}
+                  formatter={(value, name) => {
+                    const num = Number(value || 0);
+                    const bdt = Math.round(num * 1000000);
+                    const seriesName =
+                      name === 'a'
+                        ? headOffice
+                          ? 'Dhaka Mill (F-A)'
+                          : 'Cash received'
+                        : 'Khulna Mill (F-B)';
+                    return [`৳${bdt.toLocaleString('en-BD')} (${num.toFixed(2)}m)`, seriesName];
+                  }}
                   contentStyle={{
                     borderRadius: 9,
                     border: '1px solid #e9eeea',
@@ -1057,15 +1180,32 @@ function Dashboard({ query }) {
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <div className="chart-summary">
-            <span>
-              <i className="summary-dot" />
-              Total Collections Received
-            </span>
-            <b>{money.format(revenue)}</b>
-            <span className="summary-change">
-              <Activity size={13} /> Reconciled Ledger
-            </span>
+          <div className="chart-summary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <span>
+                <i className="summary-dot" />
+                Total collected
+              </span>
+              <b>{money.format(data.periodRevenue !== undefined ? data.periodRevenue : revenue)}</b>
+            </div>
+            {permissions.finance && (
+              <Link
+                to="/finance"
+                className="text-link"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: '#247351',
+                  textDecoration: 'none',
+                }}
+              >
+                <span>Open Finance & Ledger</span>
+                <ArrowRight size={14} />
+              </Link>
+            )}
           </div>
         </section>
 
@@ -1083,10 +1223,11 @@ function Dashboard({ query }) {
             <div>
               <h2>{headOffice ? 'Factory performance' : 'Order pipeline'}</h2>
               <p>
-                {headOffice ? 'Current order book by location' : 'Sales order status breakdown'}
+                {headOffice ? 'Current order book by location' : 'Sales order status value breakdown'}
               </p>
             </div>
           </div>
+
           {headOffice ? (
             <div className="factory-list">
               {factoryPerformance.map((factory, i) => (
@@ -1113,20 +1254,56 @@ function Dashboard({ query }) {
               ))}
             </div>
           ) : (
-            <div className="pipeline-list">
-              {ordersByStatus.length ? (
-                ordersByStatus.map((row) => (
-                  <div className="pipeline-row" key={row.status}>
-                    <span className={`status-dot status-${row.status.toLowerCase()}`} />
-                    <span>{pretty(row.status)}</span>
-                    <b>{row.count}</b>
-                    <small>{compactMoney.format(row.value)}</small>
-                  </div>
-                ))
-              ) : (
-                <Empty label="No orders in the pipeline yet." />
-              )}
-            </div>
+            pipelineChartData.length ? (
+              <div style={{ width: '100%', height: '175px', marginTop: '4px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    layout="vertical"
+                    data={pipelineChartData}
+                    margin={{ top: 8, right: 18, left: 4, bottom: 0 }}
+                  >
+                    <CartesianGrid horizontal={false} stroke="#edf0ed" strokeDasharray="3 4" />
+                    <XAxis
+                      type="number"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 11, fill: '#88948d' }}
+                      tickFormatter={(v) => compactMoney.format(v)}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={80}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 12, fill: '#34453b', fontWeight: 600 }}
+                    />
+                    <Tooltip
+                      formatter={(val, _name, item) => [
+                        money.format(val),
+                        `${item?.payload?.count ?? 0} orders`,
+                      ]}
+                      contentStyle={{
+                        borderRadius: 8,
+                        border: '1px solid #e2eae4',
+                        boxShadow: '0 6px 20px #12271912',
+                        fontSize: 12.5,
+                      }}
+                    />
+                    <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={18}>
+                      {pipelineChartData.map((entry) => (
+                        <Cell
+                          key={entry.name}
+                          fill={STATUS_BAR_COLORS[entry.status] || '#247351'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <Empty label="No orders in the pipeline yet." />
+            )
           )}
           <Link className="text-link" to={headOffice ? '/reports' : '/sales'}>
             {headOffice ? 'View full factory report' : 'View sales orders'} <ArrowRight size={14} />
@@ -1262,7 +1439,7 @@ function Dashboard({ query }) {
           </Link>
         </section>
       </div>
-    </>
+    </div>
   );
 }
 function Status({ status }) {

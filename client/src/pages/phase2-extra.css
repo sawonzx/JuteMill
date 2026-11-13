@@ -456,28 +456,40 @@ select.p2-input option {
    Sales Orders, Invoices, Customers, Finance, Inventory & Products Pages - Expansive Layout & Proportional Scaling
    ========================================================================== */
 
-/* 1. Reduce side spacing by expanding container max-width */
+/* 1. Reduce side spacing by expanding container max-width to match all pages */
+.page-content,
 .page-content:has(.sales-orders-page),
 .page-content:has(.invoices-page),
 .page-content:has(.customers-page),
 .page-content:has(.finance-page),
 .page-content:has(.inventory-page),
-.page-content:has(.products-page) {
+.page-content:has(.products-page),
+.page-content:has(.overview-page) {
   max-width: 1760px !important;
   width: 100% !important;
   padding: 24px 32px 36px !important;
+  box-sizing: border-box !important;
 }
 
 @media (min-width: 1920px) {
+  .page-content,
   .page-content:has(.sales-orders-page),
   .page-content:has(.invoices-page),
   .page-content:has(.customers-page),
   .page-content:has(.finance-page),
   .page-content:has(.inventory-page),
-  .page-content:has(.products-page) {
+  .page-content:has(.products-page),
+  .page-content:has(.overview-page) {
     max-width: 96% !important;
     padding: 24px 40px 40px !important;
   }
+}
+
+.overview-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
 }
 
 /* 2. Scale up page header */
@@ -1044,3 +1056,1374 @@ select.p2-input option {
   font-size: 13.5px !important;
   color: #5d6f64 !important;
 }
+
+/* ========================================================
+   Interactive Chart Period Controls & Calendar Picker
+   ======================================================== */
+.chart-controls-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.chart-period-tabs {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f2;
+  border-radius: 7px;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid #e1e7e3;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.chart-period-tab-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #56645a;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.16s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.chart-period-tab-btn:hover {
+  color: #17422e;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.chart-period-tab-btn.active {
+  background: #ffffff;
+  color: #15803d;
+  font-weight: 750;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.09), 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.chart-custom-date-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid #d5ded8;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  animation: p2FadeIn 0.2s ease-out;
+}
+
+@keyframes p2FadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chart-custom-date-row .date-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-custom-date-row .date-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #56645a;
+}
+
+.chart-custom-date-row .date-sep {
+  color: #8c9891;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.p2-date-picker-input {
+  border: 1px solid #c9d4cd;
+  background: #f8faf8;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #17422e;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.p2-date-picker-input:focus {
+  border-color: #15803d;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(21, 128, 61, 0.15);
+}
+
+@media (max-width: 900px) {
+  .chart-controls-wrapper {
+    align-items: flex-start;
+    width: 100%;
+  }
+  .chart-period-tabs {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .chart-custom-date-row {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+}
+
+/* ==========================================================================
+   Invoice Overview KPI Statistics Card (matches reference mockup)
+   ========================================================================== */
+.invoice-overview-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 18px 22px 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.invoice-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.invoice-card-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.invoice-card-menu-wrap {
+  position: relative;
+}
+
+.invoice-card-menu-btn {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  border-radius: 4px;
+  color: #9ca3af;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.invoice-card-menu-btn:hover {
+  color: #374151;
+  background: #f3f4f6;
+}
+
+.invoice-card-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  min-width: 190px;
+  z-index: 50;
+  padding: 4px;
+  animation: p2FadeIn 0.15s ease;
+}
+
+.invoice-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.invoice-dropdown-item:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.invoice-stats-grid {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  gap: 0;
+  overflow-x: auto;
+}
+
+.invoice-stat-col {
+  border-left: 1px solid #e5e7eb;
+  padding: 0 18px 0 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  border-radius: 4px;
+  position: relative;
+}
+
+.invoice-stat-col:hover {
+  background: #fafafa;
+}
+
+.invoice-stat-col.active-filter {
+  background: rgba(36, 115, 81, 0.06);
+}
+
+.invoice-stat-col.active-filter .invoice-stat-col-label {
+  color: #247351;
+  font-weight: 700;
+}
+
+.invoice-stat-col-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.invoice-stat-col-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+
+.invoice-stat-col-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #17422e;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-bottom: 12px;
+}
+
+.invoice-stat-col-pct {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #56645a;
+  margin-bottom: 12px;
+}
+
+.invoice-stat-bar-track {
+  width: 100%;
+  padding-right: 4px;
+  box-sizing: border-box;
+}
+
+.invoice-stat-col-bar {
+  height: 5px;
+  width: 100%;
+  border-radius: 2.5px;
+  transition: background 0.2s ease;
+}
+
+.invoice-stat-col-bar.paid {
+  background: #247351;
+}
+
+.invoice-stat-col-bar.resent {
+  background: #629e80;
+}
+
+.invoice-stat-col-bar.unpaid {
+  background: #d9e2dc;
+  border: 1px solid #c4d0c8;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .invoice-stats-grid {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .invoice-stat-col {
+    border-left: none;
+    border-top: 1px solid #e5e7eb;
+    padding: 12px 0 0 0;
+  }
+  .invoice-stat-bar-track {
+    padding-right: 0;
+  }
+}
+
+/* ==========================================================================
+   Scale Up Overview / Dashboard Content (Matching Sales & Invoices Pages)
+   ========================================================================== */
+
+/* 1. Page Heading & Subheading */
+.page-heading {
+  margin-bottom: 22px !important;
+}
+
+.page-heading h1 {
+  font-size: 28px !important;
+  font-weight: 800 !important;
+  color: #17422e !important;
+  letter-spacing: -0.6px !important;
+  margin-bottom: 6px !important;
+}
+
+.page-heading p {
+  font-size: 14.5px !important;
+  color: #5d6f64 !important;
+}
+
+.heading-date {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #17422e !important;
+  background: #eef4f0 !important;
+  padding: 6px 14px !important;
+  border-radius: 6px !important;
+  border: 1px solid #d5e2da !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* 2. Top Metric KPI Grid & Cards */
+.metric-grid {
+  gap: 16px !important;
+  margin-bottom: 20px !important;
+}
+
+.metric-card {
+  padding: 18px 22px 16px !important;
+  min-height: 122px !important;
+  border-radius: 10px !important;
+  border: 1px solid #e1e7e3 !important;
+  box-shadow: 0 2px 10px rgba(21, 42, 32, 0.04) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.metric-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(21, 42, 32, 0.08) !important;
+}
+
+.metric-top {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: #55645b !important;
+}
+
+.metric-icon {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 8px !important;
+  background: #ebf3ee !important;
+  color: #247351 !important;
+}
+
+.metric-icon svg {
+  width: 19px !important;
+  height: 19px !important;
+}
+
+.metric-value {
+  font-size: 29px !important;
+  font-weight: 800 !important;
+  color: #17422e !important;
+  letter-spacing: -0.8px !important;
+  margin: 9px 0 9px !important;
+}
+
+.metric-foot {
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: #6d7d73 !important;
+}
+
+.delta-up,
+.delta-neutral {
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+}
+
+/* 3. Dashboard Panels, Charts & Headers */
+.dashboard-grid {
+  gap: 16px !important;
+  margin-bottom: 18px !important;
+}
+
+.panel {
+  border-radius: 10px !important;
+  border: 1px solid #e1e7e3 !important;
+  box-shadow: 0 2px 10px rgba(21, 42, 32, 0.04) !important;
+}
+
+.panel-header h2 {
+  font-size: 17.5px !important;
+  font-weight: 800 !important;
+  color: #17422e !important;
+  letter-spacing: -0.2px !important;
+  margin-bottom: 4px !important;
+}
+
+.panel-header p {
+  font-size: 13.5px !important;
+  color: #65746b !important;
+}
+
+.chart-panel {
+  min-height: 330px !important;
+  padding: 20px 22px 16px !important;
+}
+
+.chart-wrap {
+  height: 180px !important;
+  margin-top: 6px !important;
+}
+
+.chart-legend {
+  font-size: 13px !important;
+  margin: 14px 0 6px !important;
+  gap: 16px !important;
+  color: #637269 !important;
+}
+
+.legend-green,
+.legend-sand {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+.chart-unit {
+  font-size: 12.5px !important;
+  color: #8a968f !important;
+}
+
+.chart-summary {
+  font-size: 13px !important;
+  padding-top: 12px !important;
+  color: #637269 !important;
+}
+
+.chart-summary > b {
+  font-size: 15.5px !important;
+  font-weight: 800 !important;
+  color: #17422e !important;
+}
+
+.summary-change {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #247351 !important;
+}
+
+/* 4. Factory Performance & Order Pipeline */
+.factory-panel {
+  min-height: 330px !important;
+  padding: 20px 22px 16px !important;
+}
+
+.pipeline-list {
+  padding: 10px 0 8px !important;
+}
+
+.pipeline-row {
+  padding: 11px 0 !important;
+  font-size: 14px !important;
+  font-weight: 550 !important;
+  color: #3b4940 !important;
+}
+
+.pipeline-row > b {
+  font-size: 15.5px !important;
+  font-weight: 750 !important;
+  color: #17422e !important;
+}
+
+.pipeline-row > small {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #5d6f64 !important;
+}
+
+.status-dot {
+  width: 7px !important;
+  height: 7px !important;
+}
+
+.factory-item {
+  margin-bottom: 18px !important;
+}
+
+.factory-symbol {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+}
+
+.factory-details b {
+  font-size: 14.5px !important;
+  font-weight: 750 !important;
+  color: #17422e !important;
+}
+
+.factory-details small,
+.factory-total small {
+  font-size: 12.5px !important;
+  color: #728277 !important;
+}
+
+.factory-total b {
+  font-size: 15px !important;
+  font-weight: 750 !important;
+  color: #17422e !important;
+}
+
+.factory-bar {
+  height: 6px !important;
+  border-radius: 3px !important;
+}
+
+.text-link,
+.panel-link {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+}
+
+/* 5. Lower Grid: Recent Sales Orders Table & Stock Watch */
+.lower-grid {
+  gap: 16px !important;
+  margin-bottom: 24px !important;
+}
+
+.table-panel {
+  padding: 18px 0 0 !important;
+}
+
+.table-panel > .panel-header {
+  padding: 0 22px 14px !important;
+}
+
+.table-panel table th {
+  padding: 12px 18px !important;
+  font-size: 12.5px !important;
+  font-weight: 750 !important;
+  color: #4b5850 !important;
+  letter-spacing: 0.5px !important;
+}
+
+.table-panel table td {
+  padding: 13px 18px !important;
+  font-size: 14px !important;
+  color: #3b4b41 !important;
+}
+
+.table-panel .order-number {
+  font-size: 14.5px !important;
+  font-weight: 750 !important;
+  color: #17422e !important;
+}
+
+.table-panel .amount-cell {
+  font-size: 14.5px !important;
+  font-weight: 750 !important;
+  color: #17422e !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+.stock-panel {
+  padding: 18px 22px !important;
+}
+
+.alert-count {
+  font-size: 12.5px !important;
+  font-weight: 800 !important;
+  min-width: 24px !important;
+  height: 24px !important;
+  padding: 0 6px !important;
+  border-radius: 12px !important;
+}
+
+.stock-item {
+  padding: 12px 0 !important;
+}
+
+.stock-icon {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 7px !important;
+}
+
+.stock-details b {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: #1f3227 !important;
+}
+
+.stock-details small {
+  font-size: 12.5px !important;
+  color: #6d7d73 !important;
+}
+
+.stock-quantity b {
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  color: #17422e !important;
+}
+
+.stock-quantity small {
+  font-size: 12.5px !important;
+  color: #6d7d73 !important;
+}
+
+/* Reports Visual Enhancements */
+.report-chart-card {
+  background: #ffffff;
+  border: 1px solid #e7ede9;
+  border-radius: 8px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.report-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.report-chart-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f3227;
+  margin: 0 0 3px 0;
+}
+
+.report-chart-subtitle {
+  font-size: 12.5px;
+  color: #6d7d73;
+  margin: 0;
+}
+
+.report-realization-card {
+  background: #ffffff;
+  border: 1px solid #e7ede9;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-top: 14px;
+}
+
+.report-progress-bar-wrap {
+  width: 100%;
+  height: 12px;
+  background: #edf1ee;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  margin: 10px 0;
+}
+
+.report-progress-segment {
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
+.report-legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  font-size: 12.5px;
+  color: #55665d;
+}
+
+.report-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.report-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.report-donut-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.report-donut-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+
+.report-donut-center-val {
+  font-size: 22px;
+  font-weight: 800;
+  color: #17422e;
+  line-height: 1;
+}
+
+.report-donut-center-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7a8b81;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 3px;
+}
+
+.report-card-toggle-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid #edf1ee;
+}
+
+.report-toggle-table-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f7faf8;
+  border: 1px solid #dce5df;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #247351;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.report-toggle-table-btn:hover {
+  background: #edf5f0;
+  border-color: #247351;
+  color: #17422e;
+}
+
+.report-table-collapse {
+  margin-top: 12px;
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+/* ==========================================================================
+   INVENTORY PAGE TYPOGRAPHY SCALE-UP
+   ========================================================================== */
+
+/* 1. Page Header & Actions */
+.inventory-page .p2-title-row h1 {
+  font-size: 28px !important;
+  font-weight: 750 !important;
+  color: #173827 !important;
+}
+
+.inventory-page .p2-title-row p {
+  font-size: 15px !important;
+  color: #6d7871 !important;
+}
+
+.inventory-page .p2-page-actions .p2-button {
+  height: 42px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 0 16px !important;
+}
+
+/* 2. Inventory Top Metric Cards */
+.inventory-page .p2-metric {
+  padding: 16px 20px !important;
+  min-height: 114px !important;
+  border-radius: 8px !important;
+}
+
+.inventory-page .p2-metric-label {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: #627268 !important;
+}
+
+.inventory-page .p2-metric .p2-icon-box {
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 7px !important;
+}
+
+.inventory-page .p2-metric > b {
+  font-size: 25px !important;
+  font-weight: 750 !important;
+  color: #173827 !important;
+  margin: 10px 0 4px !important;
+  letter-spacing: -0.4px !important;
+}
+
+.inventory-page .p2-metric > small {
+  font-size: 13px !important;
+  color: #7b8c82 !important;
+  font-weight: 500 !important;
+}
+
+/* 3. Toolbar, Search & Filter Controls */
+.inventory-page .p2-toolbar {
+  padding: 16px 32px !important;
+  gap: 12px !important;
+}
+
+.inventory-page .p2-search {
+  height: 42px !important;
+}
+
+.inventory-page .p2-search input {
+  font-size: 14.5px !important;
+}
+
+.inventory-page .p2-select {
+  height: 42px !important;
+  font-size: 14px !important;
+  font-weight: 550 !important;
+  padding: 0 32px 0 14px !important;
+}
+
+.inventory-page .p2-toolbar-count {
+  font-size: 13px !important;
+  font-weight: 650 !important;
+  padding: 5px 14px !important;
+  border-radius: 20px !important;
+}
+
+/* 4. Table Header & Cells */
+.inventory-table th {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  padding: 17px 20px !important;
+  color: #3b4b41 !important;
+  letter-spacing: 0.3px !important;
+}
+
+.inventory-table td {
+  font-size: 15px !important;
+  padding: 16px 20px !important;
+  color: #2b3b31 !important;
+}
+
+.inventory-table td:first-child {
+  font-size: 14px !important;
+  font-weight: 650 !important;
+  color: #617367 !important;
+}
+
+.inventory-table .p2-record-link {
+  font-size: 15.5px !important;
+  font-weight: 700 !important;
+  color: #17422e !important;
+  line-height: 1.35 !important;
+}
+
+.inventory-table .p2-record-link:hover {
+  color: #15803d !important;
+}
+
+.inventory-table .p2-record-link small {
+  font-size: 13px !important;
+  color: #6d7d73 !important;
+  margin-top: 4px !important;
+  display: block !important;
+  font-weight: 500 !important;
+}
+
+.inventory-table td b {
+  font-size: 15px !important;
+  font-weight: 650 !important;
+  color: #26382e !important;
+}
+
+.inventory-table td small {
+  font-size: 13px !important;
+  color: #6d7d73 !important;
+  margin-top: 2px !important;
+  display: block !important;
+}
+
+.inventory-table .p2-type {
+  font-size: 13px !important;
+  font-weight: 650 !important;
+  padding: 5px 11px !important;
+  border-radius: 5px !important;
+}
+
+.inventory-table .p2-quantity {
+  font-size: 16px !important;
+  font-weight: 750 !important;
+  color: #17422e !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+.inventory-table td.p2-right {
+  font-size: 15px !important;
+  font-weight: 650 !important;
+  color: #26382e !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+.inventory-table .p2-healthy {
+  font-size: 13px !important;
+  font-weight: 650 !important;
+  padding: 5px 12px !important;
+  border-radius: 5px !important;
+  color: #1b633b !important;
+  background: #edf6f0 !important;
+}
+
+.inventory-table .p2-low-stock {
+  font-size: 13px !important;
+  font-weight: 650 !important;
+  padding: 5px 12px !important;
+  border-radius: 5px !important;
+  color: #925c17 !important;
+  background: #fdf6ec !important;
+}
+
+.inventory-table .p2-low-stock i {
+  width: 7px !important;
+  height: 7px !important;
+}
+
+.inventory-table .p2-threshold-cell {
+  min-width: 175px !important;
+}
+
+.inventory-table .p2-small-input {
+  font-size: 14px !important;
+  height: 36px !important;
+  padding: 0 10px !important;
+  border-radius: 6px !important;
+  border: 1px solid #d2ded6 !important;
+  color: #1d3326 !important;
+}
+
+.inventory-table .p2-mini-button {
+  font-size: 13px !important;
+  height: 36px !important;
+  padding: 0 14px !important;
+  font-weight: 650 !important;
+  border-radius: 6px !important;
+}
+
+.inventory-page .p2-pagination {
+  font-size: 14px !important;
+  padding: 16px 32px !important;
+}
+
+/* 5. Lower Section: Recent Movements Panel */
+.inventory-page .p2-panel-heading h2 {
+  font-size: 17.5px !important;
+  font-weight: 700 !important;
+  color: #173827 !important;
+}
+
+.inventory-page .p2-panel-heading p {
+  font-size: 13.5px !important;
+  color: #6d7d73 !important;
+}
+
+.inventory-page .p2-inline-link {
+  font-size: 13.5px !important;
+  font-weight: 650 !important;
+  color: #247351 !important;
+}
+
+.inventory-page .p2-movement-type {
+  font-size: 13px !important;
+  font-weight: 650 !important;
+  padding: 5px 11px !important;
+  border-radius: 5px !important;
+}
+
+/* ==========================================================================
+   FINANCE & LEDGER - PREMIUM VISUAL CHARTS & REALIZATION CARDS
+   ========================================================================== */
+
+.finance-visual-panel {
+  background: #ffffff;
+  border: 1px solid #dce6e0;
+  border-radius: 10px;
+  padding: 22px 24px 18px;
+  box-shadow: 0 1px 4px rgba(18, 39, 25, 0.04), 0 6px 18px -4px rgba(18, 39, 25, 0.03);
+  margin-bottom: 18px;
+}
+
+.finance-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #eef3f0;
+}
+
+.finance-card-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: #edf5f0;
+  color: #17422e;
+  border: 1px solid #d8e5dd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.finance-chart-title {
+  font-size: 17px;
+  font-weight: 750;
+  color: #173827;
+  margin: 0 0 2px;
+  letter-spacing: -0.2px;
+}
+
+.finance-chart-subtitle {
+  font-size: 13px;
+  color: #63756b;
+  margin: 0;
+}
+
+.finance-period-switcher {
+  display: inline-flex;
+  background: #eef3f0;
+  border: 1px solid #d7e2dc;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.finance-period-btn {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: #495e52;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.finance-period-btn:hover {
+  color: #17422e;
+}
+
+.finance-period-btn.active {
+  background: #ffffff;
+  color: #17422e;
+  box-shadow: 0 1px 4px rgba(18, 39, 25, 0.12);
+}
+
+/* Metric summary banner */
+.finance-kpi-banner {
+  background: #f8faf8;
+  border: 1px solid #e2ebe5;
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}
+
+.finance-kpi-banner-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.finance-kpi-primary {
+  display: flex;
+  flex-direction: column;
+}
+
+.finance-kpi-primary-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #617367;
+  margin-bottom: 2px;
+}
+
+.finance-kpi-primary-val {
+  font-size: 24px;
+  font-weight: 800;
+  color: #17422e;
+  letter-spacing: -0.4px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.finance-kpi-primary-sub {
+  font-size: 12px;
+  color: #728277;
+  margin-top: 2px;
+}
+
+.finance-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  align-items: center;
+}
+
+.finance-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid #dce6e0;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  box-shadow: 0 1px 2px rgba(18, 39, 25, 0.03);
+}
+
+.finance-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.finance-chip-name {
+  font-weight: 600;
+  color: #3b4d42;
+}
+
+.finance-chip-val {
+  font-weight: 750;
+  color: #17422e;
+  font-variant-numeric: tabular-nums;
+  margin-left: 2px;
+}
+
+.finance-chip-pct {
+  font-size: 11px;
+  font-weight: 600;
+  color: #697a70;
+  background: #f0f5f2;
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-left: 2px;
+}
+
+/* Multi-segment realization line */
+.finance-multi-seg-bar {
+  display: flex;
+  height: 6px;
+  width: 100%;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #e6ede8;
+  margin-top: 12px;
+}
+
+.finance-multi-seg-chunk {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+/* Ledger Realization Banner */
+.finance-ledger-realization-card {
+  background: #f8faf8;
+  border: 1px solid #e2ebe5;
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}
+
+.finance-ledger-stats-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.finance-ledger-legend-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.finance-ledger-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #3d4f44;
+  background: #ffffff;
+  border: 1px solid #dce6e0;
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+
+.finance-ledger-legend-item b {
+  font-weight: 750;
+  color: #17422e;
+  font-variant-numeric: tabular-nums;
+  margin-left: 2px;
+}
+
+.finance-chart-tooltip {
+  background: #ffffff;
+  border: 1px solid #dbe5df;
+  border-radius: 8px;
+  padding: 11px 15px;
+  box-shadow: 0 8px 24px -2px rgba(18, 39, 25, 0.14);
+  font-size: 12.5px;
+  min-width: 220px;
+}
+
+.finance-chart-tooltip-header {
+  font-weight: 700;
+  color: #173827;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #edf2ee;
+  padding-bottom: 5px;
+}
+
+/* ==========================================================================
+   PRODUCTS PAGE - CATEGORY & ON HAND / STOCK TYPOGRAPHY SCALE-UP
+   ========================================================================== */
+
+/* 1. Column Names / Headers */
+.product-table th.product-category-header,
+.product-table th:nth-child(3),
+.product-table th.product-stock-header,
+.product-table th:nth-child(5) {
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  color: #3b4d42 !important;
+  letter-spacing: 0.3px !important;
+}
+
+/* 2. Category Table Data Column */
+.product-table td.product-category-cell,
+.product-table td:nth-child(3) {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  color: #23362a !important;
+}
+
+/* 3. On Hand / Factory Stock Table Data Column */
+.product-table td.product-stock-cell,
+.product-table td:nth-child(5) {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+}
+
+.product-table td.product-stock-cell .p2-stock-summary,
+.product-table td:nth-child(5) .p2-stock-summary {
+  font-size: 15.5px !important;
+  gap: 5px !important;
+  font-weight: 400 !important;
+}
+
+.product-table td.product-stock-cell .p2-stock-summary span,
+.product-table td:nth-child(5) .p2-stock-summary span {
+  font-size: 16px !important;
+  color: #23362a !important;
+  font-weight: 400 !important;
+}
+
+.product-table td.product-stock-cell .p2-stock-summary b,
+.product-table td:nth-child(5) .p2-stock-summary b {
+  font-size: 16.5px !important;
+  font-weight: 500 !important;
+  color: #17422e !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+.product-table td.product-stock-cell .p2-stock-summary .p2-subtext,
+.product-table td:nth-child(5) .p2-stock-summary .p2-subtext {
+  font-size: 14.5px !important;
+  font-weight: 400 !important;
+  color: #728277 !important;
+}
+
+/* ==========================================================================
+   CUSTOMERS PAGE - CONTACT, TYPE, CREATED TYPOGRAPHY SCALE-UP (NON-BOLD)
+   ========================================================================== */
+
+/* 1. Column Names / Headers */
+.customer-table th.customer-contact-header,
+.customer-table th.customer-type-header,
+.customer-table th.customer-created-header {
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  color: #3b4d42 !important;
+  letter-spacing: 0.3px !important;
+}
+
+/* 2. Contact Table Data Column */
+.customer-table td.customer-contact-cell {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  color: #23362a !important;
+}
+
+.customer-table td.customer-contact-cell .p2-subtext {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: #6d7d73 !important;
+  margin-top: 3px !important;
+}
+
+/* 3. Type Table Data Column */
+.customer-table td.customer-type-cell {
+  font-size: 16px !important;
+  font-weight: 400 !important;
+  color: #23362a !important;
+}
+
+/* 4. Created Table Data Column */
+.customer-table td.customer-created-cell {
+  font-size: 15.5px !important;
+  font-weight: 400 !important;
+  color: #3b4d42 !important;
+}
+
+
+
+

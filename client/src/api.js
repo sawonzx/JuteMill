@@ -73,10 +73,13 @@ function json(method, data) {
   };
 }
 export const getDemoUsers = () => request('/demo-users');
-export const getDashboard = (userId, factoryId) =>
+export const getDashboard = (userId, factoryId, period, startDate, endDate) =>
   request(
     `/dashboard${queryString({
       factoryId,
+      period,
+      startDate,
+      endDate,
     })}`,
     {
       headers: {
@@ -141,6 +144,7 @@ export const cancelOrder = (id, reason) =>
 export const deleteOrder = (id) =>
   request(`/orders/${encodeURIComponent(id)}`, { method: 'DELETE' });
 export const getInvoices = (filters) => request(`/invoices${queryString(filters)}`);
+export const getInvoiceStats = (filters) => request(`/invoices/stats${queryString(filters)}`);
 export const getInvoice = (id) => request(`/invoices/${encodeURIComponent(id)}`);
 export const createInvoice = (data) => request('/invoices', json('POST', data));
 export const updateInvoice = (id, data) =>
@@ -153,6 +157,7 @@ export const voidInvoice = (id, reason) =>
     })
   );
 export const getPayments = (filters) => request(`/payments${queryString(filters)}`);
+export const getPaymentStats = (params) => request(`/payments/stats${queryString(params)}`);
 export const recordPayment = (data) => request('/payments', json('POST', data));
 export const getCustomerLedger = (customerId) =>
   request(`/customers/${encodeURIComponent(customerId)}/ledger`);

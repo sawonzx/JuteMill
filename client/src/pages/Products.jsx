@@ -195,9 +195,9 @@ function ProductListPage() {
                   <tr>
                     <th>#</th>
                     <th>Product</th>
-                    <th>Category</th>
+                    <th className="product-category-header">Category</th>
                     <th>Type</th>
-                    <th>{isAdmin ? 'Factory stock' : 'On hand'}</th>
+                    <th className="product-stock-header">{isAdmin ? 'Factory stock' : 'On hand'}</th>
                     <th className="amount-header" style={{ textAlign: 'left' }}>
                       <button
                         type="button"
@@ -239,11 +239,11 @@ function ProductListPage() {
                           <small>{product.sku}</small>
                         </Link>
                       </td>
-                      <td>{product.category}</td>
+                      <td className="product-category-cell">{product.category}</td>
                       <td>
                         <TypeLabel type={product.type} />
                       </td>
-                      <td>
+                      <td className="product-stock-cell">
                         <div className="p2-stock-summary">
                           {isAdmin ? (
                             product.stockByFactory?.length ? (

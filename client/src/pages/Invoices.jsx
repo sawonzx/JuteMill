@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -10,9 +10,11 @@ import {
   CreditCard,
   FileText,
   Info,
+  MoreVertical,
   Pencil,
   Plus,
   Printer,
+  RefreshCw,
   Search,
   X,
 } from 'lucide-react';
@@ -21,6 +23,7 @@ import {
   getFactories,
   getInvoice,
   getInvoices,
+  getInvoiceStats,
   getOrder,
   getOrders,
   recordPayment,
@@ -63,6 +66,163 @@ function StatusChip({ status }) {
     </span>
   );
 }
+
+function formatCompactBDT(val) {
+  const num = Number(val) || 0;
+  if (num === 0) return '৳0';
+  if (num >= 10000000) {
+    const cr = num / 10000000;
+    return `৳${cr >= 10 ? cr.toFixed(1) : cr.toFixed(2)}Cr`;
+  }
+  if (num >= 1000000) {
+    const m = num / 1000000;
+    return `৳${m >= 10 ? m.toFixed(1) : m.toFixed(2)}M`;
+  }
+  if (num >= 1000) {
+    const k = num / 1000;
+    return `৳${k >= 100 ? Math.round(k) : k.toFixed(1)}K`;
+  }
+  return `৳${Math.round(num).toLocaleString('en-BD')}`;
+}
+
+function InvoiceOverviewCard({ stats, activeStatus, onSelectStatus, onRefresh }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleOutsideClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [menuOpen]);
+
+  const paid = stats?.paid ?? { amount: 0, percentage: 0, count: 0 };
+  const resent = stats?.resentRequest ?? { amount: 0, percentage: 0, count: 0 };
+  const unpaid = stats?.unpaid ?? { amount: 0, percentage: 0, count: 0 };
+
+  return (
+    <div className="invoice-overview-card">
+      <div className="invoice-card-header">
+        <h3 className="invoice-card-title">Invoices</h3>
+        <div className="invoice-card-menu-wrap" ref={menuRef}>
+          <button
+            type="button"
+            className="invoice-card-menu-btn"
+            onClick={() => setMenuOpen(!menuOpen)}
+            title="Options"
+          >
+            <MoreVertical size={16} />
+          </button>
+          {menuOpen && (
+            <div className="invoice-card-dropdown">
+              <button
+                type="button"
+                className="invoice-dropdown-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onRefresh?.();
+                }}
+              >
+                <RefreshCw size={13} /> Refresh data
+              </button>
+              <button
+                type="button"
+                className="invoice-dropdown-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onSelectStatus?.('');
+                }}
+              >
+                Show all invoices
+              </button>
+              <button
+                type="button"
+                className="invoice-dropdown-item"
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate('/reports');
+                }}
+              >
+                <FileText size={13} /> Aging receivables report
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="invoice-stats-grid">
+        {/* Column 1: PAID */}
+        <div
+          className={`invoice-stat-col ${activeStatus === 'PAID' ? 'active-filter' : ''}`}
+          style={{ flex: `${Math.max(paid.percentage, 18)} 1 0%` }}
+          onClick={() => onSelectStatus?.(activeStatus === 'PAID' ? '' : 'PAID')}
+          title="Click to filter by Fully Paid invoices"
+        >
+          <div className="invoice-stat-col-content">
+            <span className="invoice-stat-col-label">PAID</span>
+            <span className="invoice-stat-col-value" title={`৳ ${paid.amount.toLocaleString('en-BD')}`}>
+              {formatCompactBDT(paid.amount)}
+            </span>
+            <span className="invoice-stat-col-pct">
+              {paid.percentage.toFixed(paid.percentage % 1 === 0 ? 0 : 1)}%
+            </span>
+          </div>
+          <div className="invoice-stat-bar-track">
+            <div className="invoice-stat-col-bar paid" />
+          </div>
+        </div>
+
+        {/* Column 2: RESENT REQUEST */}
+        <div
+          className={`invoice-stat-col ${activeStatus === 'PART_PAID' ? 'active-filter' : ''}`}
+          style={{ flex: `${Math.max(resent.percentage, 18)} 1 0%` }}
+          onClick={() => onSelectStatus?.(activeStatus === 'PART_PAID' ? '' : 'PART_PAID')}
+          title="Click to filter by Part Paid / In Progress invoices"
+        >
+          <div className="invoice-stat-col-content">
+            <span className="invoice-stat-col-label">RESENT REQUEST</span>
+            <span className="invoice-stat-col-value" title={`৳ ${resent.amount.toLocaleString('en-BD')}`}>
+              {formatCompactBDT(resent.amount)}
+            </span>
+            <span className="invoice-stat-col-pct">
+              {resent.percentage.toFixed(resent.percentage % 1 === 0 ? 0 : 1)}%
+            </span>
+          </div>
+          <div className="invoice-stat-bar-track">
+            <div className="invoice-stat-col-bar resent" />
+          </div>
+        </div>
+
+        {/* Column 3: UNPAID */}
+        <div
+          className={`invoice-stat-col ${activeStatus === 'ISSUED' ? 'active-filter' : ''}`}
+          style={{ flex: `${Math.max(unpaid.percentage, 18)} 1 0%` }}
+          onClick={() => onSelectStatus?.(activeStatus === 'ISSUED' ? '' : 'ISSUED')}
+          title="Click to filter by Unpaid / Issued invoices"
+        >
+          <div className="invoice-stat-col-content">
+            <span className="invoice-stat-col-label">UNPAID</span>
+            <span className="invoice-stat-col-value" title={`৳ ${unpaid.amount.toLocaleString('en-BD')}`}>
+              {formatCompactBDT(unpaid.amount)}
+            </span>
+            <span className="invoice-stat-col-pct">
+              {unpaid.percentage.toFixed(unpaid.percentage % 1 === 0 ? 0 : 1)}%
+            </span>
+          </div>
+          <div className="invoice-stat-bar-track">
+            <div className="invoice-stat-col-bar unpaid" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function InvoiceListView() {
   const { isAdmin } = useCurrentRole();
   const [q, setQ] = useState('');
@@ -88,6 +248,12 @@ function InvoiceListView() {
     queryFn: getFactories,
     enabled: isAdmin,
   });
+
+  const statsQuery = useQuery({
+    queryKey: ['invoice-stats', { factoryId: isAdmin ? factoryId : undefined }],
+    queryFn: () => getInvoiceStats({ factoryId: isAdmin ? factoryId : undefined }),
+  });
+
   const invoicesQuery = useQuery({
     queryKey: [
       'invoices',
@@ -128,6 +294,19 @@ function InvoiceListView() {
             </button>
           </div>
         }
+      />
+
+      <InvoiceOverviewCard
+        stats={statsQuery.data}
+        activeStatus={status}
+        onSelectStatus={(newStatus) => {
+          setStatus(newStatus);
+          setPage(1);
+        }}
+        onRefresh={() => {
+          void statsQuery.refetch();
+          void invoicesQuery.refetch();
+        }}
       />
 
       <section className="p2-panel">
@@ -521,6 +700,9 @@ function CreateInvoiceFromOrder({ orderId }) {
         queryKey: ['invoices'],
       });
       void client.invalidateQueries({
+        queryKey: ['invoice-stats'],
+      });
+      void client.invalidateQueries({
         queryKey: ['dashboard'],
       });
       navigate(`/invoices/${newInv.id}`);
@@ -733,6 +915,9 @@ function InvoiceDetailView({ id }) {
         queryKey: ['invoices'],
       });
       void client.invalidateQueries({
+        queryKey: ['invoice-stats'],
+      });
+      void client.invalidateQueries({
         queryKey: ['dashboard'],
       });
       void refetch();
@@ -745,6 +930,9 @@ function InvoiceDetailView({ id }) {
       setVoidModal(false);
       void client.invalidateQueries({
         queryKey: ['invoices'],
+      });
+      void client.invalidateQueries({
+        queryKey: ['invoice-stats'],
       });
       void client.invalidateQueries({
         queryKey: ['dashboard'],
@@ -766,6 +954,9 @@ function InvoiceDetailView({ id }) {
       setPayRef('');
       void client.invalidateQueries({
         queryKey: ['invoices'],
+      });
+      void client.invalidateQueries({
+        queryKey: ['invoice-stats'],
       });
       void client.invalidateQueries({
         queryKey: ['payments'],

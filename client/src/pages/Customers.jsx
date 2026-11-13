@@ -181,11 +181,11 @@ function CustomerListPage() {
                   <tr>
                     <th style={{ width: '96px', minWidth: '96px', textAlign: 'center' }}>#</th>
                     <th>Customer</th>
-                    <th>Contact</th>
+                    <th className="customer-contact-header">Contact</th>
                     {isAdmin && <th>Factory</th>}
-                    <th>Type</th>
+                    <th className="customer-type-header">Type</th>
                     <th>Status</th>
-                    <th>Created</th>
+                    <th className="customer-created-header">Created</th>
                     <th style={{ width: '96px', minWidth: '96px', textAlign: 'center' }}>
                       Action
                     </th>
@@ -203,7 +203,7 @@ function CustomerListPage() {
                           <small>{customer.code}</small>
                         </Link>
                       </td>
-                      <td>
+                      <td className="customer-contact-cell">
                         {customer.contactPerson}
                         <small className="p2-subtext">{customer.phone}</small>
                       </td>
@@ -215,11 +215,11 @@ function CustomerListPage() {
                           </span>
                         </td>
                       )}
-                      <td>{customer.type === 'BUSINESS' ? 'Business' : 'Individual'}</td>
+                      <td className="customer-type-cell">{customer.type === 'BUSINESS' ? 'Business' : 'Individual'}</td>
                       <td>
                         <StatusLabel status={customer.status} />
                       </td>
-                      <td>{new Date(customer.createdAt).toLocaleDateString('en-GB')}</td>
+                      <td className="customer-created-cell">{new Date(customer.createdAt).toLocaleDateString('en-GB')}</td>
                       <td className="p2-actions-cell" style={{ textAlign: 'center' }}>
                         <div className="p2-actions" style={{ justifyContent: 'center' }}>
                           <Link

@@ -141,6 +141,102 @@ export function createInvoicesRouter(prisma, dbManager) {
     }
   });
 
+  router.get('/stats', async (req, res, next) => {
+    try {
+      const user = req.user;
+      const requestedFactoryId = req.query.factoryId;
+      let factoryIds = user.accessibleFactoryIds;
+      if (requestedFactoryId && user.canAccessFactory(requestedFactoryId)) {
+        factoryIds = [requestedFactoryId];
+      }
+
+      const where = {
+        ...(factoryIds ? { factoryId: { in: factoryIds } } : {}),
+        status: { not: 'VOID' },
+      };
+
+      const clients = await getQueryClients(prisma, dbManager, requestedFactoryId);
+
+      const invoiceLists = await Promise.all(
+        clients.map((db) =>
+          db.invoice.findMany({
+            where,
+            select: {
+              id: true,
+              total: true,
+              paidAmount: true,
+              balanceDue: true,
+              dueDate: true,
+              status: true,
+              factoryId: true,
+            },
+          })
+        )
+      );
+
+      const allInvoices = invoiceLists.flat();
+
+      let paidAmount = 0;
+      let resentRequestAmount = 0;
+      let unpaidAmount = 0;
+
+      let paidCount = 0;
+      let resentRequestCount = 0;
+      let unpaidCount = 0;
+
+      const now = new Date();
+
+      for (const inv of allInvoices) {
+        const total = Number(inv.total) || 0;
+        const paid = Number(inv.paidAmount) || 0;
+        const balance = Number(inv.balanceDue) || 0;
+        const isOverdue = new Date(inv.dueDate).getTime() < now.getTime();
+
+        paidAmount += paid;
+        if (inv.status === 'PAID') {
+          paidCount++;
+        }
+
+        if (balance > 0) {
+          if (inv.status === 'PART_PAID' || (!isOverdue && paid > 0)) {
+            resentRequestAmount += balance;
+            resentRequestCount++;
+          } else {
+            unpaidAmount += balance;
+            unpaidCount++;
+          }
+        }
+      }
+
+      const totalInvoiced = paidAmount + resentRequestAmount + unpaidAmount;
+      const paidPct = totalInvoiced > 0 ? (paidAmount / totalInvoiced) * 100 : 0;
+      const resentRequestPct = totalInvoiced > 0 ? (resentRequestAmount / totalInvoiced) * 100 : 0;
+      const unpaidPct = totalInvoiced > 0 ? (unpaidAmount / totalInvoiced) * 100 : 0;
+
+      res.json({
+        totalInvoiced: Math.round(totalInvoiced),
+        paid: {
+          amount: Math.round(paidAmount),
+          percentage: Math.round(paidPct * 10) / 10,
+          count: paidCount,
+        },
+        resentRequest: {
+          amount: Math.round(resentRequestAmount),
+          percentage: Math.round(resentRequestPct * 10) / 10,
+          count: resentRequestCount,
+        },
+        unpaid: {
+          amount: Math.round(unpaidAmount),
+          percentage: Math.round(unpaidPct * 10) / 10,
+          count: unpaidCount,
+        },
+        totalCount: allInvoices.length,
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   router.get('/:id', async (req, res, next) => {
     try {
       const user = req.user;

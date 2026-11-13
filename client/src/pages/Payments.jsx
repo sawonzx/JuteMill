@@ -57,6 +57,7 @@ export default function PaymentsPage() {
     </div>
   );
 }
+
 function ReceiptsView() {
   const { isAdmin } = useCurrentRole();
   const [q, setQ] = useState('');
@@ -480,6 +481,7 @@ function RecordPaymentModal({ onClose }) {
     </div>
   );
 }
+
 function CustomerLedgerView() {
   const { isAdmin } = useCurrentRole();
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
